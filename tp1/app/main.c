@@ -1,20 +1,19 @@
 /*
  * example of coroutines using setjmp()/longjmp()
  */
-#if defined __x86_64__
+#if defined __riscv
+    #include <hf-risc.h>
+#else
     #include <stdint.h>
     #include <stdio.h>
     #include <setjmp.h>
     #define delay_ms(x) sleep(x/1000)
-#else
-    #include <hf-risc.h>
 #endif
 
 #define DELAY		1000
 #define N_TASKS		4
 
-#if defined __x86_64__
-#else
+#if defined __riscv
     typedef uint32_t jmp_buf[20];
     int32_t setjmp(jmp_buf env);
     void longjmp(jmp_buf env, int32_t val);
