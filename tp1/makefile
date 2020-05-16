@@ -290,6 +290,7 @@ test: crt
 	@$(MAKE) --no-print-directory link
 
 main: crt
+	$(GCC_$(ARCH)) -o list.o lib/list.c
 	$(GCC_$(ARCH)) -o main.o app/main.c
 	@$(MAKE) --no-print-directory link
 
