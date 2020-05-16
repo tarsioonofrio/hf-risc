@@ -2,3 +2,25 @@
 .idea/
 
 cmake-build-debug/
+
+*.o
+
+tools/sim/hf_riscv_sim/hf_riscv_sim
+
+tools/sim/hf_riscv_sim/hf_riscv_sim_cache
+
+*.bin
+
+*.cnt
+
+*.elf
+
+*.lst
+
+*.map
+
+*.sec
+
+tp1/code.txt
+
+*.out
