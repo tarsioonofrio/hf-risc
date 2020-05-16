@@ -2,7 +2,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -28,7 +28,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -54,7 +54,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -80,7 +80,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -106,7 +106,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -132,7 +132,7 @@
  {
   "directory": "/home/tarsio/personal/hf-risc/tp1",
   "arguments": [
-   "riscv32-unknown-elf-gcc",
+   "/usr/local/riscv32-unknown-elf/gcc/bin/riscv32-unknown-elf-gcc",
    "-march=rv32i",
    "-mabi=ilp32",
    "-Wall",
@@ -150,9 +150,9 @@
    "-fdata-sections",
    "-ffunction-sections",
    "-o",
-   "main.o",
-   "app/main.c"
+   "scheduler.o",
+   "app/scheduler.c"
   ],
-  "file": "app/main.c"
+  "file": "app/scheduler.c"
  }
 ]

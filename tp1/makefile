@@ -1,3 +1,6 @@
+# path to compiler
+# PATH=/usr/local/riscv32-unknown-elf/gcc/bin/
+
 # architecture: mips or riscv
 ARCH=riscv
 
@@ -27,6 +30,15 @@ DUMP_riscv = riscv32-unknown-elf-objdump -Mno-aliases
 READ_riscv = riscv32-unknown-elf-readelf
 OBJ_riscv = riscv32-unknown-elf-objcopy
 SIZE_riscv = riscv32-unknown-elf-size
+
+# GCC_riscv = $(PATH)riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -O2 -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) #-DDEBUG_PORT #-ffixed-s10 -ffixed-s11 -mno-div -mrvc -fPIC -DDEBUG_PORT
+# AS_riscv = $(PATH)riscv32-unknown-elf-as -march=rv32i -mabi=ilp32 #-fPIC
+# LD_riscv = $(PATH)riscv32-unknown-elf-ld -melf32lriscv $(LDFLAGS_STRIP)
+# DUMP_riscv = $(PATH)riscv32-unknown-elf-objdump -Mno-aliases
+# READ_riscv = $(PATH)riscv32-unknown-elf-readelf
+# OBJ_riscv = $(PATH)riscv32-unknown-elf-objcopy
+# SIZE_riscv = $(PATH)riscv32-unknown-elf-size
+
 
 all:
 
@@ -289,9 +301,9 @@ test: crt
 	$(GCC_$(ARCH)) -o test.o app/test.c
 	@$(MAKE) --no-print-directory link
 
-main: crt
+scheduler: crt
 	$(GCC_$(ARCH)) -o list.o lib/list.c
-	$(GCC_$(ARCH)) -o main.o app/main.c
+	$(GCC_$(ARCH)) -o scheduler.o app/scheduler.c
 	@$(MAKE) --no-print-directory link
 
 
