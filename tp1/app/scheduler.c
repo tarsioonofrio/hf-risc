@@ -41,6 +41,7 @@ struct list *list_function;
 time_t last_second;
 
 /*
+ TODO
  Preemption
  Set start set jmp process
  wait interruption, when this occur we have two options:
