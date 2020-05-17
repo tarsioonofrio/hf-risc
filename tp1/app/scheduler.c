@@ -25,8 +25,8 @@
 #endif
 
 
-static jmp_buf jmp_g[N_TASKS];
-static int cur_g;
+static jmp_buf rt_jmp[N_TASKS];
+static int rt_curr;
 
 #if defined __riscv
     char mem_pool[8192];
@@ -35,10 +35,10 @@ static int cur_g;
 void task0();
 void task1();
 void task2();
-void idle_task();
+void rt_task();
 
-struct list *list_function;
-time_t last_second;
+struct list *rt_list_function;
+time_t rt_last_second;
 
 /*
  TODO
@@ -54,27 +54,27 @@ time_t last_second;
 
 void context_switch()
 {
-	if (!setjmp(jmp_g[cur_g])) {
-		if (N_TASKS == ++cur_g)
-            cur_g = 0;
-		longjmp(jmp_g[cur_g], 1);
+	if (!setjmp(rt_jmp[rt_curr])) {
+		if (N_TASKS == ++rt_curr)
+            rt_curr = 0;
+		longjmp(rt_jmp[rt_curr], 1);
 	}
 }
 
-void idle_task()
+void rt_task()
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-    cur_g = N_TASKS - 1;		/* the first thread to context switch is this one */
+    rt_curr = N_TASKS - 1;		/* the first thread to context switch is this one */
     time_t second;
-	setjmp(jmp_g[N_TASKS - 1]);
+	setjmp(rt_jmp[N_TASKS - 1]);
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("idle task...%d\n", cur_g);
+		printf("rt task...%d\n", rt_curr);
         second = time(NULL);
-        printf("%ld\n", second - last_second);
+        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -85,18 +85,18 @@ void task2(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
     time_t second;
-	if (!setjmp(jmp_g[2])) {
-        cur_g++;
-        func = list_get(list_function, cur_g);
+	if (!setjmp(rt_jmp[2])) {
+        rt_curr++;
+        func = list_get(rt_list_function, rt_curr);
         func();
     }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 2...%d\n", cur_g);
+		printf("task 2...%d\n", rt_curr);
         second = time(NULL);
-        printf("%ld\n", second - last_second);
+        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -106,18 +106,18 @@ void task1(void) {
     cushion[0] = '@';        /* don't optimize my cushion away */
     void (*func)();
     time_t second;
-    if (!setjmp(jmp_g[1])) {
-        cur_g++;
-        func = list_get(list_function, cur_g);
+    if (!setjmp(rt_jmp[1])) {
+        rt_curr++;
+        func = list_get(rt_list_function, rt_curr);
         func();
 }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 1...%d\n", cur_g);
+		printf("task 1...%d\n", rt_curr);
         second = time(NULL);
-        printf("%ld\n", second - last_second);
+        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -128,18 +128,18 @@ void task0(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
     time_t second;
-	if (!setjmp(jmp_g[0])) {
-        cur_g++;
-        func = list_get(list_function, cur_g);
+	if (!setjmp(rt_jmp[0])) {
+        rt_curr++;
+        func = list_get(rt_list_function, rt_curr);
         func();
     }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 0...%d\n", cur_g);
+		printf("task 0...%d\n", rt_curr);
         second = time(NULL);
-        printf("%ld\n", second - last_second);
+        printf("%ld\n", second - rt_last_second);
 
 		delay_ms(DELAY);
 	}
@@ -194,15 +194,15 @@ int main(void)
         heap_init((uint32_t *)&mem_pool, sizeof(mem_pool));
     #endif
 
-    list_function = list_init();
-    if(list_append(list_function, task0)) printf("FAIL!");
-    if(list_append(list_function, task1)) printf("FAIL!");
-    if(list_append(list_function, task2)) printf("FAIL!");
-    if(list_append(list_function, idle_task)) printf("FAIL!");
+    rt_list_function = list_init();
+    if(list_append(rt_list_function, task0)) printf("FAIL!");
+    if(list_append(rt_list_function, task1)) printf("FAIL!");
+    if(list_append(rt_list_function, task2)) printf("FAIL!");
+    if(list_append(rt_list_function, rt_task)) printf("FAIL!");
 
-    func = list_get(list_function, 0);
+    func = list_get(rt_list_function, 0);
 
-    last_second = time(NULL);
+    rt_last_second = time(NULL);
     func();
 
 	return 0;
