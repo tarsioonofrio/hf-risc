@@ -9,13 +9,14 @@
     #include <stdint.h>
     #include <setjmp.h>
     #include <unistd.h>
+    #include <time.h>
     #define delay_ms(x) sleep(x/1000)
 #endif
 #include "list.h"
 
 
 #define DELAY		1000
-//#define N_TASKS		2
+#define N_TASKS		4
 
 #if defined __riscv
     typedef uint32_t jmp_buf[20];
@@ -23,7 +24,6 @@
     void longjmp(jmp_buf env, int32_t val);
 #endif
 
-#define N_TASKS		4
 
 static jmp_buf jmp_g[N_TASKS];
 static int cur_g;
@@ -38,6 +38,18 @@ void task2();
 void idle_task();
 
 struct list *list_function;
+time_t last_second;
+
+/*
+ Preemption
+ Set start set jmp process
+ wait interruption, when this occur we have two options:
+ 1. jump to next function.
+ 2. in interruption handler define next function, return to current function and
+    save context, jump to new function.
+    How force to save context when returning of interruption?
+    Without this is necessary wait until the next save context point in sequential execution.
+ */
 
 void context_switch()
 {
@@ -53,13 +65,15 @@ void idle_task()
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     cur_g = N_TASKS - 1;		/* the first thread to context switch is this one */
-
+    time_t second;
 	setjmp(jmp_g[N_TASKS - 1]);
 
 	while (1) {			/* thread body */
 		context_switch();
 
 		printf("idle task...%d\n", cur_g);
+        second = time(NULL);
+        printf("%ld\n", second - last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -69,7 +83,7 @@ void task2(void)
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
-
+    time_t second;
 	if (!setjmp(jmp_g[2])) {
         cur_g++;
         func = list_get(list_function, cur_g);
@@ -80,6 +94,8 @@ void task2(void)
 		context_switch();
 
 		printf("task 2...%d\n", cur_g);
+        second = time(NULL);
+        printf("%ld\n", second - last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -88,7 +104,7 @@ void task1(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
     void (*func)();
-
+    time_t second;
     if (!setjmp(jmp_g[1])) {
         cur_g++;
         func = list_get(list_function, cur_g);
@@ -99,6 +115,8 @@ void task1(void) {
 		context_switch();
 
 		printf("task 1...%d\n", cur_g);
+        second = time(NULL);
+        printf("%ld\n", second - last_second);
 		delay_ms(DELAY);
 	}
 }
@@ -108,7 +126,7 @@ void task0(void)
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
-
+    time_t second;
 	if (!setjmp(jmp_g[0])) {
         cur_g++;
         func = list_get(list_function, cur_g);
@@ -119,6 +137,9 @@ void task0(void)
 		context_switch();
 
 		printf("task 0...%d\n", cur_g);
+        second = time(NULL);
+        printf("%ld\n", second - last_second);
+
 		delay_ms(DELAY);
 	}
 }
@@ -180,6 +201,7 @@ int main(void)
 
     func = list_get(list_function, 0);
 
+    last_second = time(NULL);
     func();
 
 	return 0;
