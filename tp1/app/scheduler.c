@@ -25,8 +25,8 @@
 
 #define N_TASKS		4
 
-static jmp_buf jmp[N_TASKS];
-static int cur;
+static jmp_buf jmp_g[N_TASKS];
+static int cur_g;
 
 #if defined __riscv
     char mem_pool[8192];
@@ -37,19 +37,14 @@ void task1();
 void task2();
 void idle_task();
 
-typedef void function_t();
-//function_t *func[N_TASKS] = {task0, task1, task2, idle_task};
-//function_t *func[N_TASKS];// = {task0, task1, task2, idle_task};
-
 struct list *list_function;
-
 
 void context_switch()
 {
-	if (!setjmp(jmp[cur])) {
-		if (N_TASKS == ++cur)
-			cur = 0;
-		longjmp(jmp[cur], 1);
+	if (!setjmp(jmp_g[cur_g])) {
+		if (N_TASKS == ++cur_g)
+            cur_g = 0;
+		longjmp(jmp_g[cur_g], 1);
 	}
 }
 
@@ -57,14 +52,14 @@ void idle_task()
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-    cur = N_TASKS - 1;		/* the first thread to context switch is this one */
+    cur_g = N_TASKS - 1;		/* the first thread to context switch is this one */
 
-	setjmp(jmp[N_TASKS - 1]);
+	setjmp(jmp_g[N_TASKS - 1]);
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("idle task...\n");
+		printf("idle task...%d\n", cur_g);
 		delay_ms(DELAY);
 	}
 }
@@ -75,17 +70,16 @@ void task2(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
 
-	if (!setjmp(jmp[2])) {
-//		idle_task();
-//        func[3]();
-        func = list_get(list_function, 3);
+	if (!setjmp(jmp_g[2])) {
+        cur_g++;
+        func = list_get(list_function, cur_g);
         func();
     }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 2...\n");
+		printf("task 2...%d\n", cur_g);
 		delay_ms(DELAY);
 	}
 }
@@ -95,17 +89,16 @@ void task1(void) {
     cushion[0] = '@';        /* don't optimize my cushion away */
     void (*func)();
 
-    if (!setjmp(jmp[1])) {
-//		task2();
-//        func[2]();
-        func = list_get(list_function, 2);
+    if (!setjmp(jmp_g[1])) {
+        cur_g++;
+        func = list_get(list_function, cur_g);
         func();
 }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 1...\n");
+		printf("task 1...%d\n", cur_g);
 		delay_ms(DELAY);
 	}
 }
@@ -116,17 +109,16 @@ void task0(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
 
-	if (!setjmp(jmp[0])) {
-//		task1();
-//        func[1]();
-        func = list_get(list_function, 1);
+	if (!setjmp(jmp_g[0])) {
+        cur_g++;
+        func = list_get(list_function, cur_g);
         func();
     }
 
 	while (1) {			/* thread body */
 		context_switch();
 
-		printf("task 0...\n");
+		printf("task 0...%d\n", cur_g);
 		delay_ms(DELAY);
 	}
 }
@@ -173,10 +165,6 @@ int main(void)
 //    for(;;){
 //    }
 
-//    func[0] = task0;
-//    func[1] = task1;
-//    func[2] = task2;
-//    func[3] = idle_task;
 
     void (*func)();
 
@@ -193,7 +181,6 @@ int main(void)
     func = list_get(list_function, 0);
 
     func();
-
 
 	return 0;
 }
