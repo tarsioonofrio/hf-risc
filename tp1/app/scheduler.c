@@ -1,6 +1,24 @@
 /*
  * example of coroutines using setjmp()/longjmp()
  */
+
+/*
+ TODO
+ Preemption
+ Set start set jmp process
+ wait interruption, when this occur we have two options:
+ 0. in interruption handler define next function, return to current function and
+    save context, jump to new function.
+    How force to save context when returning of interruption?
+    Without this is necessary wait until the next save context point in sequential execution.
+ 1. NO I CANT DO THAT:
+    jump to next function.
+    because i will be locked in interruption,
+    i need to go out from interruption
+ */
+
+
+
 #if defined __riscv
     #include <hf-risc.h>
 #else
@@ -38,19 +56,9 @@ void task2();
 void rt_task();
 
 struct list *rt_list_function;
-time_t rt_last_second;
 
-/*
- TODO
- Preemption
- Set start set jmp process
- wait interruption, when this occur we have two options:
- 1. jump to next function.
- 2. in interruption handler define next function, return to current function and
-    save context, jump to new function.
-    How force to save context when returning of interruption?
-    Without this is necessary wait until the next save context point in sequential execution.
- */
+
+
 
 void context_switch()
 {
@@ -61,22 +69,20 @@ void context_switch()
 	}
 }
 
+
 void rt_task()
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     rt_curr = N_TASKS - 1;		/* the first thread to context switch is this one */
-    time_t second;
 	setjmp(rt_jmp[N_TASKS - 1]);
 
 	while (1) {			/* thread body */
 		context_switch();
 
 		printf("rt task...%d\n", rt_curr);
-        second = time(NULL);
-        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
-	}
+    }
 }
 
 void task2(void)
@@ -84,8 +90,7 @@ void task2(void)
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
-    time_t second;
-	if (!setjmp(rt_jmp[2])) {
+	if (!setjmp(rt_jmp[rt_curr])) {
         rt_curr++;
         func = list_get(rt_list_function, rt_curr);
         func();
@@ -95,18 +100,15 @@ void task2(void)
 		context_switch();
 
 		printf("task 2...%d\n", rt_curr);
-        second = time(NULL);
-        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
-	}
+    }
 }
 
 void task1(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
     void (*func)();
-    time_t second;
-    if (!setjmp(rt_jmp[1])) {
+    if (!setjmp(rt_jmp[rt_curr])) {
         rt_curr++;
         func = list_get(rt_list_function, rt_curr);
         func();
@@ -116,10 +118,8 @@ void task1(void) {
 		context_switch();
 
 		printf("task 1...%d\n", rt_curr);
-        second = time(NULL);
-        printf("%ld\n", second - rt_last_second);
 		delay_ms(DELAY);
-	}
+    }
 }
 
 void task0(void)
@@ -127,8 +127,7 @@ void task0(void)
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
-    time_t second;
-	if (!setjmp(rt_jmp[0])) {
+	if (!setjmp(rt_jmp[rt_curr])) {
         rt_curr++;
         func = list_get(rt_list_function, rt_curr);
         func();
@@ -138,61 +137,58 @@ void task0(void)
 		context_switch();
 
 		printf("task 0...%d\n", rt_curr);
-        second = time(NULL);
-        printf("%ld\n", second - rt_last_second);
-
 		delay_ms(DELAY);
-	}
+    }
 }
 
+#if defined __riscv
+    void timer1ctc_handler(void)
+    {
+        printf("TIMER1CTC %d\n", TIMER0);
+    }
 
-//void timer1ctc_handler(void)
-//{
-//    printf("TIMER1CTC %d\n", TIMER0);
-//}
+    //void timer1ocr_handler(void)
+    //{
+    //    static uint32_t tmr1ocr = 0;
+    //
+    //    if (++tmr1ocr & 1) {
+    //        printf("TIMER1OCR %d\n", TIMER0);
+    //    }
+    //
+    //    /* schedule next interrupt (half period) */
+    //    TIMER1OCR = (TIMER1OCR + 196) % 19531;
+    //}
+#endif
 
-//void timer1ocr_handler(void)
-//{
-//    static uint32_t tmr1ocr = 0;
-//
-//    if (++tmr1ocr & 1) {
-//        printf("TIMER1OCR %d\n", TIMER0);
-//    }
-//
-//    /* schedule next interrupt (half period) */
-//    TIMER1OCR = (TIMER1OCR + 196) % 19531;
-//}
 
 
 int main(void)
 {
-//    TIMER1PRE = TIMERPRE_DIV256;
-
-    // Set time cycle between 5 ms and 50 ms
-    /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
-    /* 8190 / 256 = 32 */
-////    TIMER1CTC = 32;
-//    TIMER1CTC = 32768;
-
-    /* TIMER1 alt frequency: 100k cycles */
-    /* 100000 / 256 = 390.625 */
-//    TIMER1OCR = 391;
-
-    /* unlock TIMER1 for reset */
-//    TIMER1 = TIMERSET;
-//    TIMER1 = 0;
-
-    /* enable interrupt mask for TIMER1 CTC and OCR events */
-//    TIMERMASK |= MASK_TIMER1CTC | MASK_TIMER1OCR;
-//    for(;;){
-//    }
-
-
-    void (*func)();
-
     #if defined __riscv
+        TIMER1PRE = TIMERPRE_DIV256;
+
+        // Set time cycle between 5 ms and 50 ms
+        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
+        /* 8190 / 256 = 32 */
+    //    TIMER1CTC = 32;
+        TIMER1CTC = 32768;
+
+        /* TIMER1 alt frequency: 100k cycles */
+        /* 100000 / 256 = 390.625 */
+    //    TIMER1OCR = 391;
+
+        /* unlock TIMER1 for reset */
+        TIMER1 = TIMERSET;
+        TIMER1 = 0;
+
+        /* enable interrupt mask for TIMER1 CTC and OCR events */
+        TIMERMASK |= MASK_TIMER1CTC;
+    //    TIMERMASK |= MASK_TIMER1CTC | MASK_TIMER1OCR;
+    //    for(;;);
         heap_init((uint32_t *)&mem_pool, sizeof(mem_pool));
     #endif
+
+    void (*func)();
 
     rt_list_function = list_init();
     if(list_append(rt_list_function, task0)) printf("FAIL!");
@@ -202,8 +198,7 @@ int main(void)
 
     func = list_get(rt_list_function, 0);
 
-    rt_last_second = time(NULL);
+//    rt_last_second = time(NULL);
     func();
-
 	return 0;
 }
