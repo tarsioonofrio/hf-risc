@@ -63,19 +63,19 @@ struct list *rt_list_function;
 void context_switch()
 {
 	if (!setjmp(rt_jmp[rt_curr])) {
-		if (N_TASKS == ++rt_curr)
+		if (list_count(rt_list_function) == ++rt_curr)
             rt_curr = 0;
 		longjmp(rt_jmp[rt_curr], 1);
 	}
 }
 
-
 void rt_task()
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-    rt_curr = N_TASKS - 1;		/* the first thread to context switch is this one */
-	setjmp(rt_jmp[N_TASKS - 1]);
+//    rt_curr = N_TASKS - 1;		/* the first thread to context switch is this one */
+//	setjmp(rt_jmp[N_TASKS - 1]);
+	setjmp(rt_jmp[rt_curr]);
 
 	while (1) {			/* thread body */
 		context_switch();
@@ -91,9 +91,11 @@ void task2(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
 	if (!setjmp(rt_jmp[rt_curr])) {
-        rt_curr++;
-        func = list_get(rt_list_function, rt_curr);
-        func();
+	    if (rt_curr < list_count(rt_list_function) -1) {
+            rt_curr++;
+            func = list_get(rt_list_function, rt_curr);
+            func();
+        }
     }
 
 	while (1) {			/* thread body */
@@ -112,7 +114,7 @@ void task1(void) {
         rt_curr++;
         func = list_get(rt_list_function, rt_curr);
         func();
-}
+    }
 
 	while (1) {			/* thread body */
 		context_switch();
@@ -194,7 +196,7 @@ int main(void)
     if(list_append(rt_list_function, task0)) printf("FAIL!");
     if(list_append(rt_list_function, task1)) printf("FAIL!");
     if(list_append(rt_list_function, task2)) printf("FAIL!");
-    if(list_append(rt_list_function, rt_task)) printf("FAIL!");
+//    if(list_append(rt_list_function, rt_task)) printf("FAIL!");
 
     func = list_get(rt_list_function, 0);
 
