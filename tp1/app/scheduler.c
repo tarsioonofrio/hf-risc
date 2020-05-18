@@ -64,22 +64,23 @@ void rt_task();
 int rt_time;
 
 typedef struct{
-    int period;
-    int execution;
-    int deadline;
+    void (*_function)();
+    int _period;
+    int _execute;
+    int _deadline;
+    int state;
+    int computed;
 } rt_parameter;
 
 enum enum_state{READY, RUNNING, BLOCKED} rt_state;
 
-typedef struct{
-    int period;
-    int execution;
-    int deadline;
-} rt_control;
-
 struct list *rt_list_function;
 struct list *rt_list_parameter;
 struct list *rt_list_state;
+
+struct list *rt_list_ready;
+struct list *rt_list_running;
+struct list *rt_list_blocked;
 
 int rt_vec_period[N_TASKS];
 int rt_vec_execute[N_TASKS];
@@ -102,7 +103,10 @@ void rt_context_switch()
 {
     int index=0, value=0, count=0;
     int best_index=-1, best_value=65535;
-    count = list_count(rt_list_function);
+    count = list_count(rt_list_parameter);
+    rt_parameter *param, *best_param;
+    param = (rt_parameter *)malloc(sizeof(rt_parameter));
+    best_param = (rt_parameter *)malloc(sizeof(rt_parameter));
 
     /* TODO use three list one for each off: READY, RUNNING and BLOCKED or do three loops
      * with this flow is possible to set two different values to one task
@@ -111,28 +115,51 @@ void rt_context_switch()
     if (!setjmp(rt_jmp[rt_curr])) {
         best_index = rt_curr;
         best_value = rt_vec_period[rt_curr];
+        best_param = list_get(rt_list_parameter, rt_curr);
+        best_value = best_param->_period;
 
-        if (rt_vec_computed[rt_curr] == rt_vec_execute[rt_curr]){
-            rt_vec_state[rt_curr] = BLOCKED;
+//        if (rt_vec_computed[rt_curr] == rt_vec_execute[rt_curr]){
+//            rt_vec_state[rt_curr] = BLOCKED;
+//            best_index=-1;
+//            best_value=65535;
+//        }
+
+        if (best_param->computed == best_param->_execute){
+            best_param->state = BLOCKED;
             best_index=-1;
             best_value=65535;
         }
 
-        for (index=0; index < count; index++) {
-            if (rt_vec_state[index] != READY)
+
+//        for (index=0; index < count; index++) {
+//            if (rt_vec_state[index] != READY)
+//                continue;
+//            if (rt_vec_period[index] < best_value) {
+//                best_value = rt_vec_period[index];
+//                best_index = index;
+//            }
+//        }
+
+        for (index = 0; index < list_count(rt_list_parameter); index++) {
+            param = list_get(rt_list_parameter, index);
+            if (param->state != READY)
                 continue;
-            if (rt_vec_period[index] < best_value) {
-                best_value = rt_vec_period[index];
+            if (param->_period < best_value) {
+                best_value = param->_period;
                 best_index = index;
+                best_param = param;
             }
+
         }
+
         rt_vec_state[best_index] = RUNNING;
         rt_vec_computed[best_index]++;
-
-//        if (best_index != rt_curr)
-//            rt_vec_state[rt_curr] = BLOCKED;
-
         rt_curr = best_index;
+
+        best_param->state = RUNNING;
+        best_param->computed++;
+        rt_curr = best_index;
+
         rt_time++;
         longjmp(rt_jmp[rt_curr], 1);
     }
@@ -162,7 +189,7 @@ void rt_task_test(void)
 
     void (*func)();
     if (!setjmp(rt_jmp[rt_curr])) {
-        if (rt_curr < list_count(rt_list_function) -1) {
+        if (rt_curr < list_count(rt_list_parameter) -1) {
             rt_curr++;
             func = list_get(rt_list_function, rt_curr);
             func();
@@ -183,7 +210,7 @@ void task2(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     void (*func)();
 	if (!setjmp(rt_jmp[rt_curr])) {
-	    if (rt_curr < list_count(rt_list_function) -1) {
+	    if (rt_curr < list_count(rt_list_parameter) -1) {
             rt_curr++;
             func = list_get(rt_list_function, rt_curr);
             func();
@@ -204,7 +231,7 @@ void task1(void) {
 
     void (*func)();
     if (!setjmp(rt_jmp[rt_curr])) {
-        if (rt_curr < list_count(rt_list_function) -1) {
+        if (rt_curr < list_count(rt_list_parameter) -1) {
             rt_curr++;
             func = list_get(rt_list_function, rt_curr);
             func();
@@ -226,7 +253,7 @@ void task0(void)
 
     void (*func)();
     if (!setjmp(rt_jmp[rt_curr])) {
-        if (rt_curr < list_count(rt_list_function) -1) {
+        if (rt_curr < list_count(rt_list_parameter) -1) {
             rt_curr++;
             func = list_get(rt_list_function, rt_curr);
             func();
@@ -290,21 +317,44 @@ int main(void)
     #endif
 //    RT_VAR;
     void (*func)();
-
     rt_list_function = list_init();
     rt_list_parameter = list_init();
+
+    rt_parameter *param, *param1, *param2;
+    param = (rt_parameter *)malloc(sizeof(rt_parameter));
+    param1 = (rt_parameter *)malloc(sizeof(rt_parameter));
+    param2 = (rt_parameter *)malloc(sizeof(rt_parameter));
+
     if(list_append(rt_list_function, task0)) printf("FAIL!");
     rt_vec_period[0] = 4;
     rt_vec_execute[0] = 1;
     rt_vec_state[0] = READY;
+    param->_period = 4;
+    param->_execute = 1;
+    param->_function = task0;
+    param->state = READY;
+    list_append(rt_list_parameter, param);
+
     if(list_append(rt_list_function, task1)) printf("FAIL!");
     rt_vec_period[1] = 5;
     rt_vec_execute[1] = 2;
     rt_vec_state[1] = READY;
+    param1->_period = 5;
+    param1->_execute = 2;
+    param1->_function = task1;
+    param1->state = READY;
+    list_append(rt_list_parameter, param1);
+
     if(list_append(rt_list_function, task2)) printf("FAIL!");
     rt_vec_period[2] = 7;
     rt_vec_execute[2] = 2;
     rt_vec_state[2] = READY;
+    param2->_period = 7;
+    param2->_execute = 2;
+    param2->_function = task2;
+    param2->state = READY;
+    list_append(rt_list_parameter, param2);
+
 //    if(list_append(rt_list_function, rt_task_test)) printf("FAIL!");
 
     func = list_get(rt_list_function, 0);
