@@ -108,8 +108,9 @@ void rt_context_switch()
     param = (rt_parameter *)malloc(sizeof(rt_parameter));
     best_param = (rt_parameter *)malloc(sizeof(rt_parameter));
 
-    /* TODO use three list one for each off: READY, RUNNING and BLOCKED or do three loops
-     * with this flow is possible to set two different values to one task
+    /*
+     * TODO use three list one for each off: READY, RUNNING and BLOCKED or do three loops
+     * TODO with this flow is possible to set two different values to one task
      */
 
     if (!setjmp(rt_jmp[rt_curr])) {
@@ -140,6 +141,10 @@ void rt_context_switch()
 //            }
 //        }
 
+        /*
+         * TODO Replace list by other list with only READY tasks.
+         */
+
         for (index = 0; index < list_count(rt_list_parameter); index++) {
             param = list_get(rt_list_parameter, index);
             if (param->state != READY)
@@ -152,9 +157,12 @@ void rt_context_switch()
 
         }
 
-        rt_vec_state[best_index] = RUNNING;
-        rt_vec_computed[best_index]++;
-        rt_curr = best_index;
+        /*
+         * TODO Add loop to work with BLOCK tasks. Change this state to READY
+         */
+//        rt_vec_state[best_index] = RUNNING;
+//        rt_vec_computed[best_index]++;
+//        rt_curr = best_index;
 
         best_param->state = RUNNING;
         best_param->computed++;
