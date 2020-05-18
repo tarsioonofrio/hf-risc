@@ -61,6 +61,8 @@ void task1();
 void task2();
 void rt_task();
 
+int rt_time;
+
 typedef struct{
     int period;
     int execution;
@@ -75,15 +77,16 @@ typedef struct{
     int deadline;
 } rt_control;
 
-
 struct list *rt_list_function;
 struct list *rt_list_parameter;
 struct list *rt_list_state;
 
-int rt_vec_period[3];
-int rt_vec_execution[3];
-int rt_vec_deadline[3];
-int rt_vec_state[3];
+int rt_vec_period[N_TASKS];
+int rt_vec_execute[N_TASKS];
+int rt_vec_deadline[N_TASKS];
+
+int rt_vec_state[N_TASKS];
+int rt_vec_computed[N_TASKS];
 
 void rt_context_switch_circular()
 {
@@ -101,9 +104,19 @@ void rt_context_switch()
     int best_index=-1, best_value=65535;
     count = list_count(rt_list_function);
 
+    /* TODO use three list one for each off: READY, RUNNING and BLOCKED or do three loops
+     * with this flow is possible to set two different values to one task
+     */
+
     if (!setjmp(rt_jmp[rt_curr])) {
         best_index = rt_curr;
         best_value = rt_vec_period[rt_curr];
+
+        if (rt_vec_computed[rt_curr] == rt_vec_execute[rt_curr]){
+            rt_vec_state[rt_curr] = BLOCKED;
+            best_index=-1;
+            best_value=65535;
+        }
 
         for (index=0; index < count; index++) {
             if (rt_vec_state[index] != READY)
@@ -114,11 +127,13 @@ void rt_context_switch()
             }
         }
         rt_vec_state[best_index] = RUNNING;
+        rt_vec_computed[best_index]++;
 
-        if (best_index == rt_curr)
-            rt_vec_state[rt_curr] = BLOCKED;
+//        if (best_index != rt_curr)
+//            rt_vec_state[rt_curr] = BLOCKED;
 
         rt_curr = best_index;
+        rt_time++;
         longjmp(rt_jmp[rt_curr], 1);
     }
 }
@@ -280,15 +295,15 @@ int main(void)
     rt_list_parameter = list_init();
     if(list_append(rt_list_function, task0)) printf("FAIL!");
     rt_vec_period[0] = 4;
-    rt_vec_execution[0] = 1;
+    rt_vec_execute[0] = 1;
     rt_vec_state[0] = READY;
     if(list_append(rt_list_function, task1)) printf("FAIL!");
     rt_vec_period[1] = 5;
-    rt_vec_execution[1] = 2;
+    rt_vec_execute[1] = 2;
     rt_vec_state[1] = READY;
     if(list_append(rt_list_function, task2)) printf("FAIL!");
     rt_vec_period[2] = 7;
-    rt_vec_execution[2] = 2;
+    rt_vec_execute[2] = 2;
     rt_vec_state[2] = READY;
 //    if(list_append(rt_list_function, rt_task_test)) printf("FAIL!");
 
