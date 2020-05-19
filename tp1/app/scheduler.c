@@ -76,19 +76,9 @@ typedef struct{
 enum enum_state{READY, RUNNING, BLOCKED} rt_state;
 
 struct list *rt_list_function;
-struct list *rt_list_parameter;
-struct list *rt_list_state;
 
 struct list *rt_list_ready;
-struct list *rt_list_running;
 struct list *rt_list_blocked;
-
-int rt_vec_period[N_TASKS];
-int rt_vec_execute[N_TASKS];
-int rt_vec_deadline[N_TASKS];
-
-int rt_vec_state[N_TASKS];
-int rt_vec_computed[N_TASKS];
 
 void rt_context_switch_circular()
 {
@@ -116,7 +106,7 @@ void rt_context_switch()
 
     if (!setjmp(rt_jmp[rt_running])) {
         best_index = rt_running;
-        best_value = rt_vec_period[rt_running];
+//        best_value = rt_vec_period[rt_running];
         running_task = list_get(rt_list_ready, rt_running);
         best_value = running_task->_period;
 
@@ -206,15 +196,12 @@ void f2(void)
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-//    void (*func)();
     rt_task *task;
 
 	if (!setjmp(rt_jmp[rt_running])) {
 	    if (rt_running < list_count(rt_list_ready) - 1) {
             printf("\rtask ***2...%d\n", rt_running);
             rt_running++;
-//            func = list_get(rt_list_function, rt_curr);
-//            func();
             task = list_get(rt_list_ready, 0);
             task->_function();
 
@@ -232,15 +219,12 @@ void f2(void)
 void f1(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
-
-//    void (*func)();
     rt_task *task;
+
     if (!setjmp(rt_jmp[rt_running])) {
         if (rt_running < list_count(rt_list_ready) - 1) {
             printf("\rtask ***1...%d\n", rt_running);
             rt_running++;
-//            func = list_get(rt_list_function, rt_curr);
-//            func();
             task = list_get(rt_list_ready, 0);
             task->_function();
         }
@@ -258,16 +242,13 @@ void f0(void)
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-
-//    void (*func)();
     rt_task *task;
+
 
     if (!setjmp(rt_jmp[rt_running])) {
         if (rt_running < list_count(rt_list_ready) - 1) {
             printf("\rtask ***0...%d\n", rt_running);
             rt_running++;
-//            func = list_get(rt_list_function, rt_curr);
-//            func();
             task = list_get(rt_list_ready, 0);
             task->_function();
 
@@ -330,10 +311,8 @@ int main(void)
         heap_init((uint32_t *)&mem_pool, sizeof(mem_pool));
     #endif
 //    RT_VAR;
-//    void (*func)();
-//    rt_list_function = list_init();
+
     rt_list_ready = list_init();
-//    rt_list_running = list_init();
     rt_list_blocked = list_init();
 
     rt_task *task0, *task1, *task2, *task;
@@ -342,10 +321,6 @@ int main(void)
     task2 = (rt_task *)malloc(sizeof(rt_task));
     task = (rt_task *)malloc(sizeof(rt_task));
 
-//    if(list_append(rt_list_function, task0)) printf("FAIL!");
-//    rt_vec_period[0] = 4;
-//    rt_vec_execute[0] = 1;
-//    rt_vec_state[0] = READY;
     task0->_id = 0;
     task0->_period = 4;
     task0->_execute = 1;
@@ -353,32 +328,20 @@ int main(void)
     task0->state = READY;
     list_append(rt_list_ready, task0);
 
-//    if(list_append(rt_list_function, task1)) printf("FAIL!");
-//    rt_vec_period[1] = 5;
-//    rt_vec_execute[1] = 2;
-//    rt_vec_state[1] = READY;
     task1->_id = 1;
     task1->_period = 5;
     task1->_execute = 2;
-    task1->_function = task1;
+    task1->_function = f1;
     task1->state = READY;
     list_append(rt_list_ready, task1);
 
-//    if(list_append(rt_list_function, task2)) printf("FAIL!");
-//    rt_vec_period[2] = 7;
-//    rt_vec_execute[2] = 2;
-//    rt_vec_state[2] = READY;
     task2->_id = 2;
     task2->_period = 7;
     task2->_execute = 2;
-    task2->_function = task2;
+    task2->_function = f2;
     task2->state = READY;
     list_append(rt_list_ready, task2);
 
-//    if(list_append(rt_list_function, rt_task_test)) printf("FAIL!");
-
-//    func = list_get(rt_list_function, 0);
-//    func();
     task = list_get(rt_list_ready, 0);
     task->_function();
 
