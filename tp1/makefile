@@ -301,6 +301,11 @@ test: crt
 	$(GCC_$(ARCH)) -o test.o app/test.c
 	@$(MAKE) --no-print-directory link
 
+tasker_interrupt: crt
+	$(GCC_$(ARCH)) -o tasker_interrupt.o app/tasker_interrupt.c
+	@$(MAKE) --no-print-directory link
+
+
 scheduler: crt
 	$(GCC_$(ARCH)) -o list.o lib/list.c
 	$(GCC_$(ARCH)) -o scheduler.o app/scheduler.c
