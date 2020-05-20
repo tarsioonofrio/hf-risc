@@ -43,7 +43,7 @@
 #endif
 
 
-static jmp_buf rt_jmp[N_TASKS];
+static jmp_buf * rt_jmp;
 static int rt_running;
 
 #if defined __riscv
@@ -63,6 +63,8 @@ void rt_idle();
 
 int rt_time;
 
+enum enum_state{READY, RUNNING, BLOCKED} rt_state;
+
 typedef struct{
     void (*_function)();
     int _id;
@@ -73,12 +75,9 @@ typedef struct{
     int computed;
 } rt_task;
 
-enum enum_state{READY, RUNNING, BLOCKED} rt_state;
-
-struct list *rt_list_function;
-
 struct list *rt_list_ready;
 struct list *rt_list_blocked;
+struct list *rt_list_wait;
 
 void rt_context_switch_circular()
 {
@@ -153,7 +152,8 @@ void rt_context_switch(){
 }
 
 void rt_init() {
-    int count = list_count(rt_list_ready) -  1;
+    int count = list_count(rt_list_ready);
+    int loop_control = 0;
     rt_task *task, *running_task;
     task = (rt_task *) malloc(sizeof(rt_task));
     running_task = (rt_task *) malloc(sizeof(rt_task));
@@ -161,7 +161,7 @@ void rt_init() {
     setjmp(rt_jmp[0]);
     if (rt_running < count){
         rt_running++;
-        task = list_get(rt_list_ready, rt_running);
+        task = list_get(rt_list_ready, rt_running - 1);
         task->_function();
     } else{
         rt_running = 0;
@@ -170,51 +170,52 @@ void rt_init() {
 }
 
 
-void rt_function_test(void)
-{
-    volatile char cushion[1000];	/* reserve some stack space */
-    cushion[0] = '@';		/* don't optimize my cushion away */
-
-    void (*func)();
-    if (!setjmp(rt_jmp[rt_running])) {
-        if (rt_running < list_count(rt_list_ready) - 1) {
-            rt_running++;
-            func = list_get(rt_list_function, rt_running);
-            func();
-        }
-    }
-
-    while (1) {			/* thread body */
-        rt_context_switch();
-        printf("rt_task_test id: %d\n", rt_running);
-        delay_ms(DELAY);
-    }
-}
-
-
-void f2(void)
-{
-	volatile char cushion[1000];	/* reserve some stack space */
-	cushion[0] = '@';		/* don't optimize my cushion away */
+void f3(void) {
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
     rt_task *task;
 
-	if (!setjmp(rt_jmp[rt_running]))
+    if (!setjmp(rt_jmp[rt_running]))
         longjmp(rt_jmp[0], 1);
-
 //    {
-//	    if (rt_running < list_count(rt_list_ready) - 1) {
-//            printf("task ***2...%d\n", rt_running);
+//        if (rt_running < list_count(rt_list_ready) - 1) {
+//            printf("task ***1...%d\n", rt_running);
 //            rt_running++;
 //            task = list_get(rt_list_ready, 0);
 //            task->_function();
 //        }
 //    }
 
-	while (1) {			/* thread body */
+    while (1) {			/* thread body */
         rt_context_switch();
 
-		printf("\rtask 2...%d\n", rt_running);
-		delay_ms(DELAY);
+        printf("\rtask 3...%d\n", rt_running);
+        delay_ms(DELAY);
+    }
+}
+
+
+void f2(void) {
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
+    rt_task *task;
+
+    if (!setjmp(rt_jmp[rt_running]))
+        longjmp(rt_jmp[0], 1);
+//    {
+//        if (rt_running < list_count(rt_list_ready) - 1) {
+//            printf("task ***1...%d\n", rt_running);
+//            rt_running++;
+//            task = list_get(rt_list_ready, 0);
+//            task->_function();
+//        }
+//    }
+
+    while (1) {			/* thread body */
+        rt_context_switch();
+
+        printf("\rtask 2...%d\n", rt_running);
+        delay_ms(DELAY);
     }
 }
 
@@ -321,11 +322,11 @@ int main(void)
     rt_list_ready = list_init();
     rt_list_blocked = list_init();
 
-    rt_task *task0, *task1, *task2, *task;
+    rt_task *task0, *task1, *task2, *task3;
     task0 = (rt_task *)malloc(sizeof(rt_task));
     task1 = (rt_task *)malloc(sizeof(rt_task));
     task2 = (rt_task *)malloc(sizeof(rt_task));
-    task = (rt_task *)malloc(sizeof(rt_task));
+    task3 = (rt_task *)malloc(sizeof(rt_task));
 
     task0->_id = 0;
     task0->_period = 4;
@@ -348,8 +349,9 @@ int main(void)
     task2->state = READY;
     list_append(rt_list_ready, task2);
 
-//    task = list_get(rt_list_ready, 0);
-//    task->_function();
+    rt_jmp = malloc(3 * sizeof(jmp_buf));
+
+    
     rt_init();
 
 	return 0;
