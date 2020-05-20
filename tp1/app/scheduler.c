@@ -90,9 +90,8 @@ void rt_context_switch_circular()
 	}
 }
 
-void rt_context_switch()
-{
-    int index=0, value=0, count=0;
+void rt_context_switch(){
+    int index=0;
     int best_index=-1, best_value=65535;
 //    count = list_count(rt_list_ready);
     rt_task *task, *running_task;
@@ -153,19 +152,20 @@ void rt_context_switch()
     }
 }
 
+void rt_init() {
+    int count = list_count(rt_list_ready) -  1;
+    rt_task *task, *running_task;
+    task = (rt_task *) malloc(sizeof(rt_task));
+    running_task = (rt_task *) malloc(sizeof(rt_task));
 
-void rt_idle()
-{
-	volatile char cushion[1000];	/* reserve some stack space */
-	cushion[0] = '@';		/* don't optimize my cushion away */
-//    rt_curr = N_TASKS - 1;		/* the first thread to context switch is this one */
-//	setjmp(rt_jmp[N_TASKS - 1]);
-	setjmp(rt_jmp[rt_running]);
-
-	while (1) {			/* thread body */
+    setjmp(rt_jmp[0]);
+    if (rt_running < count){
+        rt_running++;
+        task = list_get(rt_list_ready, rt_running);
+        task->_function();
+    } else{
+        rt_running = 0;
         rt_context_switch();
-		printf("rt task...%d\n", rt_running);
-		delay_ms(DELAY);
     }
 }
 
@@ -198,15 +198,17 @@ void f2(void)
 	cushion[0] = '@';		/* don't optimize my cushion away */
     rt_task *task;
 
-	if (!setjmp(rt_jmp[rt_running])) {
-	    if (rt_running < list_count(rt_list_ready) - 1) {
-            printf("\rtask ***2...%d\n", rt_running);
-            rt_running++;
-            task = list_get(rt_list_ready, 0);
-            task->_function();
+	if (!setjmp(rt_jmp[rt_running]))
+        longjmp(rt_jmp[0], 1);
 
-        }
-    }
+//    {
+//	    if (rt_running < list_count(rt_list_ready) - 1) {
+//            printf("task ***2...%d\n", rt_running);
+//            rt_running++;
+//            task = list_get(rt_list_ready, 0);
+//            task->_function();
+//        }
+//    }
 
 	while (1) {			/* thread body */
         rt_context_switch();
@@ -221,14 +223,16 @@ void f1(void) {
     cushion[0] = '@';        /* don't optimize my cushion away */
     rt_task *task;
 
-    if (!setjmp(rt_jmp[rt_running])) {
-        if (rt_running < list_count(rt_list_ready) - 1) {
-            printf("\rtask ***1...%d\n", rt_running);
-            rt_running++;
-            task = list_get(rt_list_ready, 0);
-            task->_function();
-        }
-    }
+    if (!setjmp(rt_jmp[rt_running]))
+        longjmp(rt_jmp[0], 1);
+//    {
+//        if (rt_running < list_count(rt_list_ready) - 1) {
+//            printf("task ***1...%d\n", rt_running);
+//            rt_running++;
+//            task = list_get(rt_list_ready, 0);
+//            task->_function();
+//        }
+//    }
 
 	while (1) {			/* thread body */
         rt_context_switch();
@@ -245,20 +249,22 @@ void f0(void)
     rt_task *task;
 
 
-    if (!setjmp(rt_jmp[rt_running])) {
-        if (rt_running < list_count(rt_list_ready) - 1) {
-            printf("\rtask ***0...%d\n", rt_running);
-            rt_running++;
-            task = list_get(rt_list_ready, 0);
-            task->_function();
-
-        }
-    }
+    if (!setjmp(rt_jmp[rt_running]))
+        longjmp(rt_jmp[0], 1);
+//    {
+//        if (rt_running < list_count(rt_list_ready) - 1) {
+//            printf("task ***0...%d\n", rt_running);
+//            rt_running++;
+//            task = list_get(rt_list_ready, 0);
+//            task->_function();
+//
+//        }
+//    }
 
 	while (1) {			/* thread body */
         rt_context_switch();
 
-		printf("\rtask 0...%d\n", rt_running);
+		printf("task 0...%d\n", rt_running);
 		delay_ms(DELAY);
     }
 }
@@ -342,8 +348,9 @@ int main(void)
     task2->state = READY;
     list_append(rt_list_ready, task2);
 
-    task = list_get(rt_list_ready, 0);
-    task->_function();
+//    task = list_get(rt_list_ready, 0);
+//    task->_function();
+    rt_init();
 
 	return 0;
 }
