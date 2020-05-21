@@ -55,15 +55,9 @@ static int rt_running;
 // don't optimize my cushion away
 #define RT_DONT_OPTIMIZE  cushion[0] = '@'
 
-
-void task0();
-void task1();
-void task2();
-void rt_idle();
-
+void rt_task_idle();
 int rt_time;
-
-enum enum_state{READY, RUNNING, BLOCKED} rt_state;
+enum enum_state{IDLE, DONE} rt_state;
 
 typedef struct{
     void (*_function)();
@@ -75,9 +69,10 @@ typedef struct{
     int computed;
 } rt_task;
 
+rt_task *rt_running_task;
+
 struct list *rt_list_ready;
 struct list *rt_list_blocked;
-struct list *rt_list_wait;
 
 void rt_context_switch_circular()
 {
@@ -91,78 +86,83 @@ void rt_context_switch_circular()
 
 void rt_context_switch(){
     int index=0;
-    int best_index=-1, best_value=65535;
-//    count = list_count(rt_list_ready);
-    rt_task *task, *running_task;
+    int best_index=0, best_value=65535;
+    rt_task *task;
     task = (rt_task *)malloc(sizeof(rt_task));
-    running_task = (rt_task *)malloc(sizeof(rt_task));
+//    rt_running_task = (rt_task *)malloc(sizeof(rt_task));
 
     /*
-     * TODO use three list one for each off: READY, RUNNING and BLOCKED or do three loops
-     * TODO with this flow is possible to set two different values to one task
+     * TODO after this remove rt_running, unnecessary because
+     * TODO make running_task global
      */
 
-    if (!setjmp(rt_jmp[rt_running])) {
-        best_index = rt_running;
-//        best_value = rt_vec_period[rt_running];
-        running_task = list_get(rt_list_ready, rt_running);
-        best_value = running_task->_period;
+    setjmp(rt_jmp[0]);
+    best_index = rt_running;
+//    rt_running_task = list_get(rt_list_ready, rt_running);
+    best_value = rt_running_task->_period;
 
-        /*
-         *  TODO Move change state from ready to blocked to end this procedure, if this change continue at this point
-         *  TODO is possible to change one task from running to block and to ready in unique execution of
-         *  TODO this scheduler.
-         */
+    /*
+     *  TODO Move change state from ready to blocked to end this procedure, if this change continue at this point
+     *  TODO is possible to change one task from running to block and to ready in unique execution of
+     *  TODO this scheduler.
+     */
 
-        if (running_task->computed == running_task->_execute){
-            running_task->state = BLOCKED;
-            best_index=-1;
-            best_value=65535;
-            list_append(rt_list_blocked, running_task);
+    if (rt_running_task->_execute != 0) {
+        if (rt_running_task->computed == rt_running_task->_execute) {
+            rt_running_task->state = DONE;
+            list_append(rt_list_ready, rt_running_task);
+            //        rt_running_task = (rt_task *) malloc(sizeof(rt_task));
+            rt_running = 0;
+            best_value = 65535;
+        }
+    }
+
+    /*
+     * TODO optimize this loop, not is necessary call list_get, i can get node, get next node, and
+     * TODO call function of node, in next pass next to node etc
+     */
+    for (index = 0; index < list_count(rt_list_ready); index++) {
+        task = list_get(rt_list_ready, index);
+        if (task->state != IDLE)
+            continue;
+        if (task->_period < best_value) {
+            best_value = task->_period;
+            best_index = index;
+            rt_running_task = task;
         }
 
-        /*
-         * TODO Replace list by other list with only READY tasks.
-         */
-
-        for (index = 0; index < list_count(rt_list_ready); index++) {
-            task = list_get(rt_list_ready, index);
-            if (task->state != READY)
-                continue;
-            if (task->_period < best_value) {
-                best_value = task->_period;
-                best_index = index;
-                running_task = task;
-            }
-
-        }
-
-        /*
-         * TODO Add loop to work with BLOCK tasks. Change this state to READY
-         */
-
-        running_task->state = RUNNING;
-        running_task->computed++;
+//        running_task->state = RUNNING;
         rt_running = best_index;
+        rt_running_task = list_get(rt_list_ready, rt_running);
+        list_remove(rt_list_ready, rt_running);;
+        rt_running_task->computed++;
 
         rt_time++;
-        printf("\rrt_context_switch: %d\n", rt_running);
-        longjmp(rt_jmp[rt_running], 1);
+//        printf("\rrt_context_switch: %d\n", rt_running);
+        // jump 0 is rt_context_switch, jump 1 is rt_task_idle
+        longjmp(rt_jmp[rt_running + 1], 1);
     }
 }
 
 void rt_init() {
     int count = list_count(rt_list_ready);
-    int loop_control = 0;
     rt_task *task, *running_task;
-    task = (rt_task *) malloc(sizeof(rt_task));
+//    task = (rt_task *) malloc(sizeof(rt_task));
     running_task = (rt_task *) malloc(sizeof(rt_task));
 
-    setjmp(rt_jmp[0]);
+    if (!setjmp(rt_jmp[0]))
+        rt_task_idle();
+
     if (rt_running < count){
+        /*
+         * TODO optimize this loop, not is necessary call list_get, i can get node, get next node, and
+         * TODO call function of node, in next pass next to node etc
+         * TODO after this remove rt_running, unnecessary because
+         */
+
         rt_running++;
-        task = list_get(rt_list_ready, rt_running - 1);
-        task->_function();
+        running_task = list_get(rt_list_ready, rt_running - 1);
+        running_task->_function();
     } else{
         rt_running = 0;
         rt_context_switch();
@@ -170,76 +170,54 @@ void rt_init() {
 }
 
 
-void f3(void) {
+void rt_task_idle(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
-    rt_task *task;
 
-    if (!setjmp(rt_jmp[rt_running]))
+    if (!setjmp(rt_jmp[1]))
         longjmp(rt_jmp[0], 1);
-//    {
-//        if (rt_running < list_count(rt_list_ready) - 1) {
-//            printf("task ***1...%d\n", rt_running);
-//            rt_running++;
-//            task = list_get(rt_list_ready, 0);
-//            task->_function();
-//        }
-//    }
 
-    while (1) {			/* thread body */
-        rt_context_switch();
+    while (1) {
+        /* thread body */
 
-        printf("\rtask 3...%d\n", rt_running);
+//        printf("rt_task_idle...%d\n", rt_running);
+        printf("_\n");
         delay_ms(DELAY);
+        rt_context_switch();
     }
 }
-
 
 void f2(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
-    rt_task *task;
 
     if (!setjmp(rt_jmp[rt_running]))
         longjmp(rt_jmp[0], 1);
-//    {
-//        if (rt_running < list_count(rt_list_ready) - 1) {
-//            printf("task ***1...%d\n", rt_running);
-//            rt_running++;
-//            task = list_get(rt_list_ready, 0);
-//            task->_function();
-//        }
-//    }
 
-    while (1) {			/* thread body */
-        rt_context_switch();
+    while (1) {
+        /* thread body */
 
-        printf("\rtask 2...%d\n", rt_running);
+//        printf("\rtask 2...%d\n", rt_running);
+        printf("2\n");
         delay_ms(DELAY);
+        rt_context_switch();
     }
 }
 
 void f1(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
-    rt_task *task;
 
     if (!setjmp(rt_jmp[rt_running]))
         longjmp(rt_jmp[0], 1);
-//    {
-//        if (rt_running < list_count(rt_list_ready) - 1) {
-//            printf("task ***1...%d\n", rt_running);
-//            rt_running++;
-//            task = list_get(rt_list_ready, 0);
-//            task->_function();
-//        }
-//    }
 
-	while (1) {			/* thread body */
-        rt_context_switch();
+	while (1) {
+	    /* thread body */
 
-		printf("\rtask 1...%d\n", rt_running);
+//		printf("\rtask 1...%d\n", rt_running);
+        printf("1\n");
 		delay_ms(DELAY);
+        rt_context_switch();
     }
 }
 
@@ -247,26 +225,17 @@ void f0(void)
 {
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
-    rt_task *task;
-
 
     if (!setjmp(rt_jmp[rt_running]))
         longjmp(rt_jmp[0], 1);
-//    {
-//        if (rt_running < list_count(rt_list_ready) - 1) {
-//            printf("task ***0...%d\n", rt_running);
-//            rt_running++;
-//            task = list_get(rt_list_ready, 0);
-//            task->_function();
-//
-//        }
-//    }
 
-	while (1) {			/* thread body */
-        rt_context_switch();
+	while (1) {
+	    /* thread body */
 
-		printf("task 0...%d\n", rt_running);
+//		printf("\rtask 0...%d\n", rt_running);
+        printf("0\n");
 		delay_ms(DELAY);
+        rt_context_switch();
     }
 }
 
@@ -321,37 +290,47 @@ int main(void)
 
     rt_list_ready = list_init();
     rt_list_blocked = list_init();
+    rt_running_task = (rt_task *)malloc(sizeof(rt_task));
 
-    rt_task *task0, *task1, *task2, *task3;
+//    rt_task *task_idle;
+//    task_idle = (rt_task *)malloc(sizeof(rt_task));
+//    task_idle->_id = 0;
+//    task_idle->_period = 0;
+//    task_idle->_execute = 0;
+//    task_idle->_function = rt_task_idle;
+//    task_idle->state = IDLE;
+//    list_append(rt_list_ready, task_idle);
+
+    rt_task *task0;
     task0 = (rt_task *)malloc(sizeof(rt_task));
-    task1 = (rt_task *)malloc(sizeof(rt_task));
-    task2 = (rt_task *)malloc(sizeof(rt_task));
-    task3 = (rt_task *)malloc(sizeof(rt_task));
-
     task0->_id = 0;
     task0->_period = 4;
     task0->_execute = 1;
     task0->_function = f0;
-    task0->state = READY;
+    task0->state = IDLE;
     list_append(rt_list_ready, task0);
 
+    rt_task *task1;
+    task1 = (rt_task *)malloc(sizeof(rt_task));
     task1->_id = 1;
     task1->_period = 5;
     task1->_execute = 2;
     task1->_function = f1;
-    task1->state = READY;
+    task1->state = IDLE;
     list_append(rt_list_ready, task1);
+//
+//    rt_task *task2;
+//    task2 = (rt_task *)malloc(sizeof(rt_task));
+//    task2->_id = 2;
+//    task2->_period = 7;
+//    task2->_execute = 2;
+//    task2->_function = f2;
+//    task2->state = IDLE;
+//    list_append(rt_list_ready, task2);
 
-    task2->_id = 2;
-    task2->_period = 7;
-    task2->_execute = 2;
-    task2->_function = f2;
-    task2->state = READY;
-    list_append(rt_list_ready, task2);
+    rt_jmp = malloc(list_count(rt_list_ready) * sizeof(jmp_buf));
 
-    rt_jmp = malloc(3 * sizeof(jmp_buf));
 
-    
     rt_init();
 
 	return 0;
