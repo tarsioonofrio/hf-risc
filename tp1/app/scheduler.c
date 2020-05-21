@@ -55,9 +55,9 @@ static int rt_running;
 // don't optimize my cushion away
 #define RT_DONT_OPTIMIZE  cushion[0] = '@'
 
-void rt_task_idle();
-int rt_time;
-enum enum_state{IDLE, DONE} rt_state;
+void rt_idle_function();
+
+enum enum_state{SYS, READY, RUNNING, BLOCKED, DONE} rt_state;
 
 typedef struct{
     void (*_function)();
@@ -69,16 +69,18 @@ typedef struct{
     int computed;
 } rt_task;
 
-rt_task *rt_running_task;
 
-struct list *rt_list_ready;
+int rt_time;
+rt_task *rt_running_task;
+rt_task *rt_idle_task;
+struct list *rt_list_task;
 struct list *rt_list_blocked;
 
 void rt_context_switch_circular()
 {
 	if (!setjmp(rt_jmp[rt_running])) {
         rt_running++;
-		if (list_count(rt_list_ready) == rt_running)
+		if (list_count(rt_list_task) == rt_running)
             rt_running = 0;
 		longjmp(rt_jmp[rt_running], 1);
 	}
@@ -87,8 +89,9 @@ void rt_context_switch_circular()
 void rt_context_switch(){
     int index=0;
     int best_index=0, best_value=65535;
-    rt_task *task;
+    rt_task *task, *_task;
     task = (rt_task *)malloc(sizeof(rt_task));
+    _task = (rt_task *)malloc(sizeof(rt_task));
 //    rt_running_task = (rt_task *)malloc(sizeof(rt_task));
 
     /*
@@ -107,12 +110,11 @@ void rt_context_switch(){
      *  TODO this scheduler.
      */
 
-    if (rt_running_task->_execute != 0) {
+    if (rt_running_task->state != SYS) {
         if (rt_running_task->computed == rt_running_task->_execute) {
             rt_running_task->state = DONE;
-            list_append(rt_list_ready, rt_running_task);
-            //        rt_running_task = (rt_task *) malloc(sizeof(rt_task));
-            rt_running = 0;
+            rt_running_task = rt_idle_task;
+            rt_running = -1;
             best_value = 65535;
         }
     }
@@ -121,37 +123,36 @@ void rt_context_switch(){
      * TODO optimize this loop, not is necessary call list_get, i can get node, get next node, and
      * TODO call function of node, in next pass next to node etc
      */
-    for (index = 0; index < list_count(rt_list_ready); index++) {
-        task = list_get(rt_list_ready, index);
-        if (task->state != IDLE)
+    for (index = 0; index < list_count(rt_list_task); index++) {
+        task = list_get(rt_list_task, index);
+        if (task->state == DONE || task->state == BLOCKED)
             continue;
         if (task->_period < best_value) {
             best_value = task->_period;
             best_index = index;
-            rt_running_task = task;
+//            rt_running_task = task;
         }
-
-//        running_task->state = RUNNING;
-        rt_running = best_index;
-        rt_running_task = list_get(rt_list_ready, rt_running);
-        list_remove(rt_list_ready, rt_running);;
-        rt_running_task->computed++;
-
-        rt_time++;
-//        printf("\rrt_context_switch: %d\n", rt_running);
-        // jump 0 is rt_context_switch, jump 1 is rt_task_idle
-        longjmp(rt_jmp[rt_running + 1], 1);
     }
+
+    rt_running = best_index;
+    rt_running_task = list_get(rt_list_task, rt_running);
+    rt_running_task->state = RUNNING;
+    rt_running_task->computed++;
+
+
+    rt_time++;
+    // jump 0 is rt_context_switch, jump 1 is rt_task_idle
+    longjmp(rt_jmp[rt_running + 1], 1);
 }
 
 void rt_init() {
-    int count = list_count(rt_list_ready);
+    int count = list_count(rt_list_task);
     rt_task *task, *running_task;
 //    task = (rt_task *) malloc(sizeof(rt_task));
     running_task = (rt_task *) malloc(sizeof(rt_task));
 
     if (!setjmp(rt_jmp[0]))
-        rt_task_idle();
+        rt_idle_function();
 
     if (rt_running < count){
         /*
@@ -161,7 +162,7 @@ void rt_init() {
          */
 
         rt_running++;
-        running_task = list_get(rt_list_ready, rt_running - 1);
+        running_task = list_get(rt_list_task, rt_running - 1);
         running_task->_function();
     } else{
         rt_running = 0;
@@ -170,7 +171,7 @@ void rt_init() {
 }
 
 
-void rt_task_idle(void) {
+void rt_idle_function(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
@@ -186,6 +187,20 @@ void rt_task_idle(void) {
         rt_context_switch();
     }
 }
+
+
+int rt_add_task(int id, int period, int execute, void (*f), rt_task state) {
+    rt_task *task;
+    task = (rt_task *)malloc(sizeof(rt_task));
+    task->_id = id;
+    task->_period = period;
+    task->_execute = execute;
+    task->_function = f;
+    task->state = READY;
+    list_append(rt_list_task, task);
+}
+
+
 
 void f2(void) {
     volatile char cushion[1000];    /* reserve some stack space */
@@ -288,17 +303,17 @@ int main(void)
     #endif
 //    RT_VAR;
 
-    rt_list_ready = list_init();
+    rt_list_task = list_init();
     rt_list_blocked = list_init();
+
     rt_running_task = (rt_task *)malloc(sizeof(rt_task));
 
-//    rt_task *task_idle;
-//    task_idle = (rt_task *)malloc(sizeof(rt_task));
-//    task_idle->_id = 0;
-//    task_idle->_period = 0;
-//    task_idle->_execute = 0;
-//    task_idle->_function = rt_task_idle;
-//    task_idle->state = IDLE;
+    rt_idle_task = (rt_task *)malloc(sizeof(rt_task));
+    rt_idle_task->_id = -1;
+    rt_idle_task->_period = 65535;
+    rt_idle_task->_execute = -1;
+    rt_idle_task->_function = rt_idle_function;
+    rt_idle_task->state = SYS;
 //    list_append(rt_list_ready, task_idle);
 
     rt_task *task0;
@@ -307,8 +322,8 @@ int main(void)
     task0->_period = 4;
     task0->_execute = 1;
     task0->_function = f0;
-    task0->state = IDLE;
-    list_append(rt_list_ready, task0);
+    task0->state = READY;
+    list_append(rt_list_task, task0);
 
     rt_task *task1;
     task1 = (rt_task *)malloc(sizeof(rt_task));
@@ -316,19 +331,22 @@ int main(void)
     task1->_period = 5;
     task1->_execute = 2;
     task1->_function = f1;
-    task1->state = IDLE;
-    list_append(rt_list_ready, task1);
-//
-//    rt_task *task2;
-//    task2 = (rt_task *)malloc(sizeof(rt_task));
-//    task2->_id = 2;
-//    task2->_period = 7;
-//    task2->_execute = 2;
-//    task2->_function = f2;
-//    task2->state = IDLE;
-//    list_append(rt_list_ready, task2);
+    task1->state = READY;
+    list_append(rt_list_task, task1);
 
-    rt_jmp = malloc(list_count(rt_list_ready) * sizeof(jmp_buf));
+    rt_task *task2;
+    task2 = (rt_task *)malloc(sizeof(rt_task));
+    task2->_id = 2;
+    task2->_period = 7;
+    task2->_execute = 2;
+    task2->_function = f2;
+    task2->state = READY;
+    list_append(rt_list_task, task2);
+
+
+    //    rt_add_task(int id, int period, int execute, void (*f), rt_task state)
+
+    rt_jmp = malloc((list_count(rt_list_task) + 1)* sizeof(jmp_buf));
 
 
     rt_init();
