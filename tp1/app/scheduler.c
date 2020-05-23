@@ -36,7 +36,7 @@
 
 #define SYS_BUFFER	2
 #define DELAY		100
-#define DEBUG		1
+#define DEBUG		2
 
 #if defined __riscv
     typedef uint32_t jmp_buf[20];
@@ -90,43 +90,28 @@ void rt_context_switch_circular()
 }
 
 void rt_context_switch(){
-    int index=0;
-    int best_index=0, best_value=65535;
-    rt_task *task, *_task;
-    task = (rt_task *)malloc(sizeof(rt_task));
-    _task = (rt_task *)malloc(sizeof(rt_task));
-
-    /*
-     * TODO after this remove rt_running, unnecessary
-     * TODO make running_task global
-     */
+//    int best_index=0, best_value=65535;
+    rt_task *task = (rt_task *)malloc(sizeof(rt_task));
 
     setjmp(rt_jmp[0]);
-    best_index = rt_running_id;
-    best_value = rt_running_task->_period;
+//    best_index = rt_running_id;
+//    best_value = rt_running_task->_period;
 
-    /*
-     *  TODO Move change state from ready to blocked to end this procedure, if this change continue at this point
-     *  TODO is possible to change one task from running to block and to ready in unique execution of
-     *  TODO this scheduler.
-     */
 
     if (rt_running_task->state != SYS) {
         if (rt_running_task->executed == rt_running_task->_capacity) {
             rt_running_task->state = DONE;
             rt_running_task = rt_idle_task;
-            rt_running_id = -1;
-            best_index = -1;
-            best_value = 65535;
+//            rt_running_id = -1;
+//            best_index = -1;
+//            best_value = 65535;
         }
     }
 
-    /*
-     * TODO optimize this loop, not is necessary call list_get, i can get node, get next node, and
-     * TODO call function of node, in next pass next to node etc
-     */
-    for (index = 0; index < list_count(rt_list_task); index++) {
-        task = list_get(rt_list_task, index);
+//    for (int index = 0; index < list_count(rt_list_task); index++) {
+//        task = list_get(rt_list_task, index);
+    for (struct list *element = rt_list_task->next; element != NULL; element = element->next) {
+        task = element->elem;
         if (task->state == BLOCKED)
             continue;
         if (task->state == DONE){
@@ -137,9 +122,9 @@ void rt_context_switch(){
             task->executed = 0;
             task->state = READY;
         }
-        if (task->_period < best_value) {
-            best_value = task->_period;
-            best_index = index;
+        if (task->_period < rt_running_task->_period) {
+//            best_value = task->_period;
+//            best_index = index;
             rt_running_task = task;
         }
     }
@@ -157,11 +142,12 @@ void rt_context_switch(){
     longjmp(rt_jmp[rt_running_id + SYS_BUFFER], 1);
 }
 
-void rt_init() {
+void rt_start() {
     int count = list_count(rt_list_task);
     rt_task *task, *running_task;
     task = (rt_task *) malloc(sizeof(rt_task));
     running_task = (rt_task *) malloc(sizeof(rt_task));
+    struct list * element;
 
     rt_jmp = malloc((list_count(rt_list_task) + 2)* sizeof(jmp_buf));
     rt_running_task = (rt_task *)malloc(sizeof(rt_task));
@@ -175,30 +161,34 @@ void rt_init() {
     rt_idle_task->state = SYS;
     rt_running_task = rt_idle_task;
 
-
     rt_running_id = 1;
     rt_time = 0;
+
 
     if (!setjmp(rt_jmp[0]))
         rt_idle_function();
 
-    if (rt_running_id < count + 1){
-        /*
-         * TODO optimize this loop, not is necessary call list_get, i can get node, get next node, and
-         * TODO call function of node, in next pass next to node etc
-         * TODO after this remove rt_running, unnecessary because
-         */
+    element = rt_list_task->next;
 
+    if (rt_running_id < count + 1){
         rt_running_id++;
-        running_task = list_get(rt_list_task, rt_running_id - SYS_BUFFER);
+        running_task = element->elem;
+//        running_task = list_get(rt_list_task, rt_running_id - SYS_BUFFER);
         running_task->_function();
     } else{
         rt_running_id = 0;
-        rt_context_switch();
+        #if defined __riscv
+        #else
+            rt_context_switch();
+        #endif
     }
 }
 
-
+void rt_create(){
+    rt_list_task = list_init();
+    rt_list_blocked = list_init();
+    rt_running_id = 0;
+}
 
 int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state) {
 //    if ((period < capacity) || (deadline < capacity))
@@ -271,14 +261,16 @@ void rt_idle_function(void) {
         /* thread body */
 
 //        printf("rt_task_idle...%d\n", rt_running);
-        if (DEBUG == 1) {
+        if ((DEBUG == 1) || (DEBUG == 2)) {
             printf("_");
         }
         delay_ms(DELAY);
-        rt_context_switch();
+        #if defined __riscv
+        #else
+                rt_context_switch();
+        #endif
     }
 }
-
 
 
 void f(void)
@@ -291,16 +283,18 @@ void f(void)
 
     while (1) {
         /* thread body */
-
 //		printf("task 0...%d\n", rt_running);
         if (DEBUG == 1) {
             printf("%d", rt_get_self_id());
         }
-        if (DEBUG == 1) {
+        if (DEBUG == 2) {
             printf("%s", rt_get_self_name());
         }
         delay_ms(DELAY);
-        rt_context_switch();
+        #if defined __riscv
+        #else
+                rt_context_switch();
+        #endif
     }
 }
 
@@ -318,7 +312,10 @@ void f2(void) {
 //        printf("task 2...%d\n", rt_running);
 //        printf("3");
         delay_ms(DELAY);
-        rt_context_switch();
+        #if defined __riscv
+        #else
+                rt_context_switch();
+        #endif
     }
 }
 
@@ -335,7 +332,10 @@ void f1(void) {
 //		printf("task 1...%d\n", rt_running);
 //        printf("2");
 		delay_ms(DELAY);
-        rt_context_switch();
+        #if defined __riscv
+        #else
+                rt_context_switch();
+        #endif
     }
 }
 
@@ -353,7 +353,10 @@ void f0(void)
 //		printf("task 0...%d\n", rt_running);
 //        printf("1");
 		delay_ms(DELAY);
-        rt_context_switch();
+        #if defined __riscv
+        #else
+                rt_context_switch();
+        #endif
     }
 }
 
@@ -362,7 +365,8 @@ void f0(void)
 #if defined __riscv
     void timer1ctc_handler(void)
     {
-        printf("TIMER1CTC %d\n", TIMER0);
+//        printf("TIMER1CTC %d\n", TIMER0);
+        rt_context_switch();
     }
 
     //void timer1ocr_handler(void)
@@ -407,19 +411,13 @@ int main(void)
     #endif
 //    RT_VAR;
 
-    /*
-     * TODO Put list initializer in one function;
-     */
-    rt_list_task = list_init();
-    rt_list_blocked = list_init();
-    rt_running_id = 0;
+    rt_create();
 
+    rt_add_task(f, 20, 3, 0, "1", READY);
+    rt_add_task(f, 05, 2, 0, "2", READY);
+    rt_add_task(f, 10, 2, 0, "3", READY);
 
-    rt_add_task(f, 10, 2, 0, "1", READY);
-    rt_add_task(f, 05, 1, 0, "2", READY);
-    rt_add_task(f, 30, 5, 0, "3", READY);
-
-    rt_init();
+    rt_start();
 
 	return 0;
 }
