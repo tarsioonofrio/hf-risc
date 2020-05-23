@@ -21,6 +21,7 @@
 
 #if defined __riscv
     #include <hf-risc.h>
+    #define PRINT_LINE printf("%d\n", __LINE__)
 #else
     #include <stdio.h>
     #include <stdlib.h>
@@ -32,6 +33,7 @@
     #define delay_ms(x) sleep(x/1000)
 #endif
 #include "list.h"
+
 
 
 #define SYS_BUFFER	2
@@ -164,7 +166,6 @@ void rt_start() {
     rt_running_id = 1;
     rt_time = 0;
 
-
     if (!setjmp(rt_jmp[0]))
         rt_idle_function();
 
@@ -178,6 +179,7 @@ void rt_start() {
     } else{
         rt_running_id = 0;
         #if defined __riscv
+            rt_idle_function();
         #else
             rt_context_switch();
         #endif
@@ -254,8 +256,10 @@ void rt_idle_function(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
-    if (!setjmp(rt_jmp[1]))
+    if (!setjmp(rt_jmp[1])){
+        PRINT_LINE;
         longjmp(rt_jmp[0], 1);
+    }
 
     while (1) {
         /* thread body */
@@ -264,6 +268,7 @@ void rt_idle_function(void) {
         if ((DEBUG == 1) || (DEBUG == 2)) {
             printf("_");
         }
+        printf("_");
         delay_ms(DELAY);
         #if defined __riscv
         #else
@@ -361,7 +366,6 @@ void f0(void)
 }
 
 
-
 #if defined __riscv
     void timer1ctc_handler(void)
     {
@@ -383,33 +387,33 @@ void f0(void)
 #endif
 
 
-
 int main(void)
 {
     #if defined __riscv
-
-        TIMER1PRE = TIMERPRE_DIV256;
-
-        // Set time cycle between 5 ms and 50 ms
-        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
-        /* 8190 / 256 = 32 */
-    //    TIMER1CTC = 32;
-        TIMER1CTC = 32768;
-
-        /* TIMER1 alt frequency: 100k cycles */
-        /* 100000 / 256 = 390.625 */
-    //    TIMER1OCR = 391;
-
-        /* unlock TIMER1 for reset */
-        TIMER1 = TIMERSET;
-        TIMER1 = 0;
-
-        /* enable interrupt mask for TIMER1 CTC and OCR events */
-        TIMERMASK |= MASK_TIMER1CTC;
-
+//        TIMER1PRE = TIMERPRE_DIV256;
+//
+//        // Set time cycle between 5 ms and 50 ms
+//        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
+//        /* 8190 / 256 = 32 */
+//    //    TIMER1CTC = 32;
+//        TIMER1CTC = 32768;
+//
+//        /* TIMER1 alt frequency: 100k cycles */
+//        /* 100000 / 256 = 390.625 */
+//    //    TIMER1OCR = 391;
+//
+//        /* unlock TIMER1 for reset */
+//        TIMER1 = TIMERSET;
+//        TIMER1 = 0;
+//
+//        /* enable interrupt mask for TIMER1 CTC and OCR events */
+//        TIMERMASK |= MASK_TIMER1CTC;
+//
         heap_init((uint32_t *)&mem_pool, sizeof(mem_pool));
     #endif
 //    RT_VAR;
+//    printf("%d\n", __LINE__);
+//    rt_list_task = list_init();
 
     rt_create();
 
