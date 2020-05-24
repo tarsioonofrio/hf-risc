@@ -19,7 +19,7 @@
 
 
 #define SYS_BUFFER	2
-#define DELAY		1
+#define DELAY		100
 #define DEBUG		0
 
 #if defined __riscv
@@ -62,7 +62,7 @@ rt_task *rt_idle_task;
 struct list *rt_list_task;
 struct list *rt_list_blocked;
 
-int rt_del_task(int id) {
+int rt_del_task(int id){
     return list_remove(rt_list_task, id);
 }
 
@@ -96,21 +96,30 @@ int rt_get_self_executed(){
 }
 
 
-void rt_context_switch_circular()
-{
+void rt_context_switch_circular(){
+    PRINT_LINE;
 	if (!setjmp(rt_jmp[rt_running_id])) {
+        PRINT_LINE;
         rt_running_id++;
 		if (list_count(rt_list_task) == rt_running_id)
             rt_running_id = 0;
+        PRINT_LINE;
 		longjmp(rt_jmp[rt_running_id], 1);
+//        longjmp(rt_jmp[0], 1);
 	}
 }
 
 void rt_context_switch(){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
+
 //    int best_index=0, best_value=65535;
     rt_task *task = (rt_task *)malloc(sizeof(rt_task));
 
+//    if (!setjmp(rt_jmp[0])) {}
+
     setjmp(rt_jmp[0]);
+    PRINT_LINE;
 //    best_index = rt_running_id;
 //    best_value = rt_running_task->_period;
 
@@ -157,9 +166,13 @@ void rt_context_switch(){
     rt_time++;
     // jump 0 is rt_context_switch, jump 1 is rt_task_idle
     longjmp(rt_jmp[rt_running_id + SYS_BUFFER], 1);
+//    delay_ms(1000);
+//    longjmp(rt_jmp[0], 1);
 }
 
-void rt_start() {
+void rt_start(){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
     int count = list_count(rt_list_task);
     rt_task *task, *running_task;
     task = (rt_task *) malloc(sizeof(rt_task));
@@ -193,14 +206,17 @@ void rt_start() {
     rt_running_id = 0;
     #if defined __riscv
         rt_clock();
-        longjmp(rt_jmp[1], 1);
-        PRINT_LINE;
+    PRINT_LINE;
+        for (;;);
+//        longjmp(rt_jmp[1], 1);
     #else
         rt_context_switch();
     #endif
 }
 
 void rt_create(){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
     #if defined __riscv
         heap_init((uint32_t *) &mem_pool, sizeof(mem_pool));
     #endif
@@ -209,31 +225,10 @@ void rt_create(){
     rt_running_id = 0;
 }
 
-#if defined __riscv
-    void rt_clock() {
-        TIMER1PRE = TIMERPRE_DIV256;
 
-        // Set time cycle between 5 ms and 50 ms
-        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
-        /* 8190 / 256 = 32 */
-        //    TIMER1CTC = 32;
-        TIMER1CTC = 32768;
-
-        /* TIMER1 alt frequency: 100k cycles */
-        /* 100000 / 256 = 390.625 */
-        //    TIMER1OCR = 391;
-
-        /* unlock TIMER1 for reset */
-        TIMER1 = TIMERSET;
-        TIMER1 = 0;
-
-        /* enable interrupt mask for TIMER1 CTC and OCR events */
-        TIMERMASK |= MASK_TIMER1CTC;
-    }
-#endif
-
-
-int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state) {
+int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
 //    if ((period < capacity) || (deadline < capacity))
     if ((period == 0) || (capacity == 0))
         return 0;
@@ -259,7 +254,38 @@ int rt_add_task(void (*function), int period, int capacity, int deadline, char *
 }
 
 
-void rt_idle_function(void) {
+
+#if defined __riscv
+void rt_clock(){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
+    TIMER1PRE = TIMERPRE_DIV256;
+
+    // Set time cycle between 5 ms and 50 ms
+    /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
+    /* 8190 / 256 = 32 */
+        TIMER1CTC = 100;
+//        TIMER1CTC = 32768;
+
+    /* unlock TIMER1 for reset */
+    TIMER1 = TIMERSET;
+    TIMER1 = 0;
+
+    /* enable interrupt mask for TIMER1 CTC and OCR events */
+    TIMERMASK |= MASK_TIMER1CTC;
+}
+
+void timer1ctc_handler(void){
+    volatile char cushion[1000];    /* reserve some stack space */
+    cushion[0] = '@';        /* don't optimize my cushion away */
+    printf("TIMER1CTC %d\n", TIMER0);
+//        PRINT_LINE;
+    rt_context_switch();
+//        longjmp(rt_jmp[2], 1);
+}
+#endif
+
+void rt_idle_function(void){
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
@@ -282,8 +308,7 @@ void rt_idle_function(void) {
 }
 
 
-void f(void)
-{
+void f(void){
     volatile char cushion[1000];	/* reserve some stack space */
     cushion[0] = '@';		/* don't optimize my cushion away */
 
@@ -303,13 +328,13 @@ void f(void)
         delay_ms(DELAY);
         #if defined __riscv
         #else
-                rt_context_switch();
+            rt_context_switch();
         #endif
     }
 }
 
 
-void f2(void) {
+void f2(void){
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
@@ -331,12 +356,12 @@ void f2(void) {
         delay_ms(DELAY);
         #if defined __riscv
         #else
-                rt_context_switch();
+            rt_context_switch();
         #endif
     }
 }
 
-void f1(void) {
+void f1(void){
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
@@ -358,13 +383,12 @@ void f1(void) {
 		delay_ms(DELAY);
         #if defined __riscv
         #else
-                rt_context_switch();
+            rt_context_switch();
         #endif
     }
 }
 
-void f0(void)
-{
+void f0(void){
 	volatile char cushion[1000];	/* reserve some stack space */
 	cushion[0] = '@';		/* don't optimize my cushion away */
 
@@ -386,23 +410,13 @@ void f0(void)
 		delay_ms(DELAY);
         #if defined __riscv
         #else
-                rt_context_switch();
+            rt_context_switch();
         #endif
     }
 }
 
 
-#if defined __riscv
-    void timer1ctc_handler(void)
-    {
-        printf("TIMER1CTC %d\n", TIMER0);
-        rt_context_switch();
-    }
-#endif
-
-int main(void)
-{
-
+int main(void){
     rt_create();
 
     rt_add_task(f0, 20, 3, 0, "1", READY);
