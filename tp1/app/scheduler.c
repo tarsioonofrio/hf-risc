@@ -1,9 +1,9 @@
 
 #if defined __riscv
     #include <hf-risc.h>
-//    #define PRINT_LINE if ((DEBUG == 1) || (DEBUG == 2)) printf("%d\n", __LINE__);
-    #define PRINT_LINE  printf("%d\n", __LINE__);
 //    delay_ms(DELAY)
+//    #define PRINT_LINE if ((DEBUG == 1) || (DEBUG == 2)) printf("%d\n", __LINE__);
+        #define PRINT_LINE  printf("%d\n", __LINE__);
 #else
     #include <stdio.h>
     #include <stdlib.h>
@@ -13,14 +13,17 @@
     #include <time.h>
     #include <string.h>
     #define delay_ms(x) sleep(x/1000)
+    #define PRINT_LINE  ;
 #endif
+
+
 
 #include "list.h"
 
 
 #define SYS_BUFFER	2
 #define DELAY		100
-#define DEBUG		0
+#define DEBUG		2
 
 #if defined __riscv
     typedef uint32_t jmp_buf[20];
