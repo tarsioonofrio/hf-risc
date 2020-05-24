@@ -1,27 +1,9 @@
-/*
- * example of coroutines using setjmp()/longjmp()
- */
-
-/*
- TODO
- Preemption
- Set start set jmp process
- wait interruption, when this occur we have two options:
- 0. in interruption handler define next function, return to current function and
-    save context, jump to new function.
-    How force to save context when returning of interruption?
-    Without this is necessary wait until the next save context point in sequential execution.
- 1. NO I CANT DO THAT:
-    jump to next function.
-    because i will be locked in interruption,
-    i need to go out from interruption
- */
-
-
 
 #if defined __riscv
     #include <hf-risc.h>
-    #define PRINT_LINE printf("%d\n", __LINE__)
+//    #define PRINT_LINE if ((DEBUG == 1) || (DEBUG == 2)) printf("%d\n", __LINE__);
+    #define PRINT_LINE  printf("%d\n", __LINE__);
+//    delay_ms(DELAY)
 #else
     #include <stdio.h>
     #include <stdlib.h>
@@ -32,27 +14,25 @@
     #include <string.h>
     #define delay_ms(x) sleep(x/1000)
 #endif
+
 #include "list.h"
 
 
-
 #define SYS_BUFFER	2
-#define DELAY		100
-#define DEBUG		2
+#define DELAY		1
+#define DEBUG		0
 
 #if defined __riscv
     typedef uint32_t jmp_buf[20];
     int32_t setjmp(jmp_buf env);
     void longjmp(jmp_buf env, int32_t val);
-#endif
-
-
-static jmp_buf * rt_jmp;
-static int rt_running_id;
-
-#if defined __riscv
     char mem_pool[8192];
 #endif
+
+
+static jmp_buf *rt_jmp;
+static int rt_running_id;
+
 
 // reserve some stack space
 #define RT_RESERVE_SPACE volatile char cushion[1000]
@@ -75,11 +55,46 @@ typedef struct{
 } rt_task;
 
 
+
 int rt_time;
 rt_task *rt_running_task;
 rt_task *rt_idle_task;
 struct list *rt_list_task;
 struct list *rt_list_blocked;
+
+int rt_del_task(int id) {
+    return list_remove(rt_list_task, id);
+}
+
+
+int rt_get_self_id(){
+    return rt_running_task->_id;
+}
+
+const char * rt_get_self_name(){
+    return rt_running_task->_name;
+}
+
+int rt_get_self_period(){
+    return rt_running_task->_period;
+}
+
+int rt_get_self_capacity(){
+    return rt_running_task->_capacity;
+}
+
+int rt_get_self_deadline(){
+    return rt_running_task->_deadline;
+}
+
+int rt_get_self_state(){
+    return rt_running_task->state;
+}
+
+int rt_get_self_executed(){
+    return rt_running_task->executed;
+}
+
 
 void rt_context_switch_circular()
 {
@@ -170,31 +185,56 @@ void rt_start() {
         rt_idle_function();
 
     element = rt_list_task->next;
-
     if (rt_running_id < count + 1){
         rt_running_id++;
         running_task = element->elem;
-//        running_task = list_get(rt_list_task, rt_running_id - SYS_BUFFER);
         running_task->_function();
-    } else{
-        rt_running_id = 0;
-        #if defined __riscv
-            rt_idle_function();
-        #else
-            rt_context_switch();
-        #endif
     }
+    rt_running_id = 0;
+    #if defined __riscv
+        rt_clock();
+        longjmp(rt_jmp[1], 1);
+        PRINT_LINE;
+    #else
+        rt_context_switch();
+    #endif
 }
 
 void rt_create(){
+    #if defined __riscv
+        heap_init((uint32_t *) &mem_pool, sizeof(mem_pool));
+    #endif
     rt_list_task = list_init();
     rt_list_blocked = list_init();
     rt_running_id = 0;
 }
 
+#if defined __riscv
+    void rt_clock() {
+        TIMER1PRE = TIMERPRE_DIV256;
+
+        // Set time cycle between 5 ms and 50 ms
+        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
+        /* 8190 / 256 = 32 */
+        //    TIMER1CTC = 32;
+        TIMER1CTC = 32768;
+
+        /* TIMER1 alt frequency: 100k cycles */
+        /* 100000 / 256 = 390.625 */
+        //    TIMER1OCR = 391;
+
+        /* unlock TIMER1 for reset */
+        TIMER1 = TIMERSET;
+        TIMER1 = 0;
+
+        /* enable interrupt mask for TIMER1 CTC and OCR events */
+        TIMERMASK |= MASK_TIMER1CTC;
+    }
+#endif
+
+
 int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state) {
 //    if ((period < capacity) || (deadline < capacity))
-
     if ((period == 0) || (capacity == 0))
         return 0;
     if(period < capacity)
@@ -218,61 +258,25 @@ int rt_add_task(void (*function), int period, int capacity, int deadline, char *
     }
 }
 
-int rt_del_task(int id) {
-    return list_remove(rt_list_task, id);
-}
-
-
-int rt_get_self_id(){
-    return rt_running_task->_id;
-}
-
-const char * rt_get_self_name(){
-    return rt_running_task->_name;
-}
-
-int rt_get_self_period(){
-    return rt_running_task->_period;
-}
-
-int rt_get_self_capacity(){
-    return rt_running_task->_capacity;
-}
-
-int rt_get_self_deadline(){
-    return rt_running_task->_deadline;
-}
-
-int rt_get_self_state(){
-    return rt_running_task->state;
-}
-
-int rt_get_self_executed(){
-    return rt_running_task->executed;
-}
-
 
 void rt_idle_function(void) {
     volatile char cushion[1000];    /* reserve some stack space */
     cushion[0] = '@';        /* don't optimize my cushion away */
 
     if (!setjmp(rt_jmp[1])){
-        PRINT_LINE;
         longjmp(rt_jmp[0], 1);
     }
 
     while (1) {
         /* thread body */
-
 //        printf("rt_task_idle...%d\n", rt_running);
         if ((DEBUG == 1) || (DEBUG == 2)) {
             printf("_");
         }
-        printf("_");
         delay_ms(DELAY);
         #if defined __riscv
         #else
-                rt_context_switch();
+            rt_context_switch();
         #endif
     }
 }
@@ -287,6 +291,7 @@ void f(void)
         longjmp(rt_jmp[0], 1);
 
     while (1) {
+//        PRINT_LINE;
         /* thread body */
 //		printf("task 0...%d\n", rt_running);
         if (DEBUG == 1) {
@@ -312,7 +317,14 @@ void f2(void) {
         longjmp(rt_jmp[0], 1);
 
     while (1) {
+        PRINT_LINE;
         /* thread body */
+        if (DEBUG == 1) {
+            printf("%d", rt_get_self_id());
+        }
+        if (DEBUG == 2) {
+            printf("%s", rt_get_self_name());
+        }
 
 //        printf("task 2...%d\n", rt_running);
 //        printf("3");
@@ -332,7 +344,14 @@ void f1(void) {
         longjmp(rt_jmp[0], 1);
 
 	while (1) {
+        PRINT_LINE;
 	    /* thread body */
+        if (DEBUG == 1) {
+            printf("%d", rt_get_self_id());
+        }
+        if (DEBUG == 2) {
+            printf("%s", rt_get_self_name());
+        }
 
 //		printf("task 1...%d\n", rt_running);
 //        printf("2");
@@ -354,6 +373,13 @@ void f0(void)
 
 	while (1) {
 	    /* thread body */
+	    PRINT_LINE;
+        if (DEBUG == 1) {
+            printf("%d", rt_get_self_id());
+        }
+        if (DEBUG == 2) {
+            printf("%s", rt_get_self_name());
+        }
 
 //		printf("task 0...%d\n", rt_running);
 //        printf("1");
@@ -369,57 +395,19 @@ void f0(void)
 #if defined __riscv
     void timer1ctc_handler(void)
     {
-//        printf("TIMER1CTC %d\n", TIMER0);
+        printf("TIMER1CTC %d\n", TIMER0);
         rt_context_switch();
     }
-
-    //void timer1ocr_handler(void)
-    //{
-    //    static uint32_t tmr1ocr = 0;
-    //
-    //    if (++tmr1ocr & 1) {
-    //        printf("TIMER1OCR %d\n", TIMER0);
-    //    }
-    //
-    //    /* schedule next interrupt (half period) */
-    //    TIMER1OCR = (TIMER1OCR + 196) % 19531;
-    //}
 #endif
-
 
 int main(void)
 {
-    #if defined __riscv
-//        TIMER1PRE = TIMERPRE_DIV256;
-//
-//        // Set time cycle between 5 ms and 50 ms
-//        /* TIMER1 base frequency: 8.190 ms or 8190 khz (cycles) */
-//        /* 8190 / 256 = 32 */
-//    //    TIMER1CTC = 32;
-//        TIMER1CTC = 32768;
-//
-//        /* TIMER1 alt frequency: 100k cycles */
-//        /* 100000 / 256 = 390.625 */
-//    //    TIMER1OCR = 391;
-//
-//        /* unlock TIMER1 for reset */
-//        TIMER1 = TIMERSET;
-//        TIMER1 = 0;
-//
-//        /* enable interrupt mask for TIMER1 CTC and OCR events */
-//        TIMERMASK |= MASK_TIMER1CTC;
-//
-        heap_init((uint32_t *)&mem_pool, sizeof(mem_pool));
-    #endif
-//    RT_VAR;
-//    printf("%d\n", __LINE__);
-//    rt_list_task = list_init();
 
     rt_create();
 
-    rt_add_task(f, 20, 3, 0, "1", READY);
-    rt_add_task(f, 05, 2, 0, "2", READY);
-    rt_add_task(f, 10, 2, 0, "3", READY);
+    rt_add_task(f0, 20, 3, 0, "1", READY);
+    rt_add_task(f1, 05, 2, 0, "2", READY);
+    rt_add_task(f2, 10, 2, 0, "3", READY);
 
     rt_start();
 
