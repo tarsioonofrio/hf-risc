@@ -212,7 +212,8 @@ static void mem_write(state *s, int32_t size, uint32_t address, uint32_t value){
 	}
 	if (address >= EXIT_TRAP) return;
 
-	ptr = (uint32_t *)(s->mem + (address % MEM_SIZE));
+
+    ptr = (uint32_t *)(s->mem + (address % MEM_SIZE));
 
 	switch (size){
 		case 4:
@@ -258,7 +259,17 @@ void cycle(state *s){
 			s->status_dly[i] = 0;
 	}
 
-	inst = mem_fetch(s, s->pc);
+	/*
+	 * DEBUG
+	 */
+//    if (s->pc == 0x40001274) {
+//        printf("***");
+//    }
+
+
+    inst = mem_fetch(s, s->pc);
+
+
 
 	opcode = inst & 0x7f;
 	rd = (inst >> 7) & 0x1f;
