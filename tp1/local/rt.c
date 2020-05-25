@@ -3,17 +3,3 @@
 //
 
 
-/////////////////////
-
-void f(void (*fp)()) {
-    fp();
-}
-
-void test() {
-    printf("hello world\n");
-}
-
-int main2() {
-    f(&test);
-    return 0;
-}
