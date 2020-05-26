@@ -308,6 +308,7 @@ tasker_interrupt: crt
 
 scheduler: crt
 	$(GCC_$(ARCH)) -o list.o lib/list.c
+	$(GCC_$(ARCH)) -o rt.o app/rt.c
 	$(GCC_$(ARCH)) -o scheduler.o app/scheduler.c
 	@$(MAKE) --no-print-directory link
 
