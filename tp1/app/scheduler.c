@@ -31,6 +31,7 @@
     typedef uint32_t jmp_buf[20];
     int32_t setjmp(jmp_buf env);
     void longjmp(jmp_buf env, int32_t val);
+    int32_t _interrupt_set(int32_t s);
     char mem_pool[8192];
 #endif
 
@@ -104,7 +105,10 @@ void rt_context_switch_circular(){
         rt_running_id++;
 		if (list_count(rt_list_task) == rt_running_id)
             rt_running_id = 0;
-		longjmp(rt_jmp[rt_running_id], 1);
+        #if defined __riscv
+            _interrupt_set(1);
+        #endif
+        longjmp(rt_jmp[rt_running_id], 1);
 	}
 }
 
@@ -145,6 +149,9 @@ void rt_context_switch(){
 
     rt_time++;
     // jump 0 is rt_context_switch, jump 1 is rt_task_idle
+    #if defined __riscv
+        _interrupt_set(1);
+    #endif
     longjmp(rt_jmp[rt_running_id + SYS_BUFFER], 1);
 }
 
