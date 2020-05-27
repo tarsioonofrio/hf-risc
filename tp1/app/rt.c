@@ -85,10 +85,10 @@ void rt_context_switch(){
     }
 
     rt_time++;
-    // jump 0 is rt_context_switch, jump 1 is rt_task_idle
 #if defined __riscv
     _interrupt_set(1);
 #endif
+    // jump 0 is rt_context_switch, jump 1 is rt_task_idle
     longjmp(rt_jmp[rt_running_id + SYS_BUFFER], 1);
 }
 
@@ -124,15 +124,14 @@ void rt_start(){
         running_task->_function();
     }
     rt_running_id = 0;
-    PRINT_LINE;
-#if defined __riscv
-    if (TIMER){
-            rt_clock();
-            for (;;);
-        } else rt_context_switch();
-#else
-    rt_context_switch();
-#endif
+    #if defined __riscv
+        if (TIMER){
+                rt_clock();
+                for (;;);
+            } else rt_context_switch();
+    #else
+        rt_context_switch();
+    #endif
 }
 
 void rt_create(){
@@ -140,7 +139,6 @@ void rt_create(){
     heap_init((uint32_t *) &mem_pool, sizeof(mem_pool));
 #endif
     rt_list_task = list_init();
-    rt_list_blocked = list_init();
     rt_running_id = 0;
 }
 
@@ -190,7 +188,9 @@ void rt_clock(){
 }
 
 void timer1ctc_handler(void){
-    printf("TIMER1CTC %d\n", TIMER0);
+        if (LOG == 1) {
+            printf("%d", rt_get_self_id());
+        }
 //    if (DELAY) delay_ms(DELAY_TIME);
     rt_context_switch();
 }

@@ -40,8 +40,6 @@ int rt_time;
 rt_task *rt_running_task;
 rt_task *rt_idle_task;
 struct list *rt_list_task;
-struct list *rt_list_blocked;
-
 
 int rt_get_self_id();
 const char * rt_get_self_name();

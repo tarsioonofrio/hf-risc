@@ -1,7 +1,17 @@
 #include "rt.h"
 
+
 jmp_buf *rt_jmp;
 int rt_running_id;
+
+// if we use delay or not
+#define DELAY       0
+// time of delay
+#define DELAY_TIME	100
+// log type or what is printed,
+// 0 = no log, 1 = task id, 2 = task name
+#define LOG		    2
+
 
 void f(void){
     volatile char cushion[1000];	/* reserve some stack space */
@@ -10,7 +20,6 @@ void f(void){
     if (!setjmp(rt_jmp[rt_running_id]))
         longjmp(rt_jmp[0], 1);
 
-//    void rt_setjmp();
 
     while (1) {
         /* thread body */
