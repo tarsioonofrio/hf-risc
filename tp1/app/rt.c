@@ -149,6 +149,8 @@ void rt_setjmp(){
 
 
 int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state){
+    if ((state != READY) && (state != BLOCKED))
+        return 0;
     if ((period == 0) || (capacity == 0))
         return 0;
     if(period < capacity)
@@ -171,6 +173,38 @@ int rt_add_task(void (*function), int period, int capacity, int deadline, char *
         return 1;
     }
 }
+
+const int * rt_get_states(){
+    int * state = (int *)malloc(list_count(rt_list_task) * sizeof(int));
+    rt_task *task = (rt_task *)malloc(sizeof(rt_task));
+    int i = 0;
+
+    for (struct list *element = rt_list_task->next; element != NULL; element = element->next) {
+        task = element->elem;
+        state[i] = task->state;
+        i++;
+    }
+    return state;
+}
+
+
+const int * rt_get_ids(){
+    int * id = (int *)malloc(list_count(rt_list_task) * sizeof(int));
+    rt_task *task = (rt_task *)malloc(sizeof(rt_task));
+    int i = 0;
+
+    for (struct list *element = rt_list_task->next; element != NULL; element = element->next) {
+        task = element->elem;
+        id[i] = task->_id;
+        i++;
+    }
+    return id;
+}
+
+int rt_task_count(){
+    return list_count(rt_list_task);
+}
+
 
 #if defined __riscv
 void rt_clock(){

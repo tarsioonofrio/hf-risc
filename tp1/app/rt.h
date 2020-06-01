@@ -21,7 +21,6 @@ extern int rt_running_id;
 // don't optimize my cushion away
 //#define RT_DONT_OPTIMIZE  cushion[0] = '@'
 
-void rt_idle_function();
 
 enum enum_state{READY, RUNNING, BLOCKED, DONE, SYS} rt_state;
 
@@ -53,8 +52,13 @@ void rt_context_switch();
 void rt_start();
 void rt_create();
 void rt_setjmp();
+void rt_idle_function();
 int rt_del_task(int id);
 int rt_add_task(void (*function), int period, int capacity, int deadline, char *name, int state);
+const int * rt_get_states();
+const int * rt_get_ids();
+int rt_task_count();
+
 #if defined __riscv
     void rt_clock();
     void timer1ctc_handler(void);
