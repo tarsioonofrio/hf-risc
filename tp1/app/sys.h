@@ -2,12 +2,6 @@
 // Created by tarsio on 26/05/2020.
 //
 
-#ifndef SCHEDULER_SYS_H
-#define SCHEDULER_SYS_H
-
-#endif //SCHEDULER_SYS_H
-
-
 #if defined __riscv
     #include <hf-risc.h>
     #define PRINT_LINE  printf("%d\n", __LINE__);
@@ -31,8 +25,8 @@
 // time of delay
 #define DELAY_TIME	100
 // log type or what is printed,
-// 0 = no log, 1 = task id, 2 = task name
-#define LOG		    2
+// 0 = no log, 1 = task id, 2 = task name, 4 = schedule time
+#define LOG		    4
 // if use timer ctc in riscv or not
 #define TIMER       1
 

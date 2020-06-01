@@ -1,17 +1,7 @@
 #include "rt.h"
 
-
 jmp_buf *rt_jmp;
 int rt_running_id;
-
-// if we use delay or not
-#define DELAY       0
-// time of delay
-#define DELAY_TIME	100
-// log type or what is printed,
-// 0 = no log, 1 = task id, 2 = task name
-#define LOG		    2
-
 
 void f(void){
     volatile char cushion[1000];	/* reserve some stack space */
@@ -116,9 +106,12 @@ void f0(void){
 int main(void){
     rt_create();
 
-    rt_add_task(f, 20, 3, 0, "1", READY);
-    rt_add_task(f, 05, 2, 0, "2", READY);
-    rt_add_task(f, 10, 2, 0, "3", READY);
+//    rt_add_task(f, 20, 3, 0, "1", READY);
+//    rt_add_task(f, 05, 2, 0, "2", READY);
+//    rt_add_task(f, 10, 2, 0, "3", READY);
+    for (int i = 1; i < 64 + 1; i++){
+        rt_add_task(f, i*5, 2, 0, "_", READY);
+    }
 
     rt_start();
  	return 0;

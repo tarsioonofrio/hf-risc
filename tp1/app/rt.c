@@ -50,6 +50,9 @@ void rt_context_switch_circular(){
 }
 
 void rt_context_switch(){
+    #if defined __riscv
+        int time = TIMER0;
+    #endif
     rt_task *task = (rt_task *)malloc(sizeof(rt_task));
 
     setjmp(rt_jmp[0]);
@@ -86,6 +89,10 @@ void rt_context_switch(){
 
     rt_time++;
 #if defined __riscv
+    if (LOG == 4) {
+            time = TIMER0 - time;
+            printf("%d\n", time);
+    }
     _interrupt_set(1);
 #endif
     // jump 0 is rt_context_switch, jump 1 is rt_task_idle
@@ -246,7 +253,7 @@ void rt_idle_function(void){
         }
         if (DELAY) delay_ms(DELAY_TIME);
 #if defined __riscv
-        if (TIMER ==0) rt_context_switch();
+//        if (TIMER ==0) rt_context_switch();
 #else
         rt_context_switch();
 #endif
