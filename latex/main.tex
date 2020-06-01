@@ -162,7 +162,7 @@ void f(void){
 }
 \end{lstlisting}
 
-Escreva uma função sem parâmetros de entrada e sem retorno, as linhas 1 e 2 são essenciais pois reservam espaço na pilha para essa função e impede que o compilador ao otimizar o código remova o espaço reservado. As linhas 5 e 6 reservam salvam o contexto nos registradores e pulam de volta para a função \verb|rt_start|. Por fim adicione o laço infinito com alguma execução dentro.
+O usuário deve escrever uma função sem parâmetros de entrada e sem retorno. As linhas 1 e 2 reservam espaço na pilha para essa função e impede que o compilador ao otimizar o código remova o espaço reservado. As linhas 5 e 6 reservam salvam o contexto nos registradores e pulam de volta para a função \verb|rt_start|. Por fim adicione o laço infinito com alguma execução dentro.
 
 \begin{lstlisting}[captionpos=b, language=C, caption=Exemplo de uso]
 int main(void){
@@ -198,6 +198,8 @@ Há ainda outras funções que podem ser usadas no sistema:
 \end{itemize}
 
 \section{Avaliação do custo da implementação}
+O sistema ficou relativamente leve mesmo com poucas otimizações. O sistema tem apenas um módulo, os arquivos \textit{rt}. O arquivo \textit{rt.h} tem apenas 66 linhas e o arquivo \textit{rt.c} tem 254. O arquivo \textit{sys.h} tem 45 linhas, sua função é auxiliar no desenvolvimento facilitando a troca entre as plataformas \textit{X64} e \textit{riscv 32 bits}, apenas 5 linhas são obrigatórias em produção. No total são apenas \textit{8.4 kB}, além do arquivo \textit{scheduler.c} onde esta a função \textit{main.c}.
+
 % avaliação do custo da implementação (tamanho do código para cada subsistema, custo em ciclos do algoritmo de escalonamento, etc).
 
 
