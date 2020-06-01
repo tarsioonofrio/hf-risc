@@ -142,9 +142,9 @@ A variável \verb|int rt_time|  é o contador global da unidade de tempo, ele é
 % como utilizar os mecanismos desenvolvidos
 % casos de uso, demonstrando as funcionalidades
 
-O sistema é fácil de usar, requerendo o \textit{GCC} com suporte para arquitetura \textit{RISCV 32 bits}, Apresentamos as 
+% avaliação do custo da implementação (tamanho do código para cada subsistema, custo em ciclos do algoritmo de escalonamento, etc).
 
-Primeiramente baixe o repositório (privado no momento) no endereço \textit{https://github.com/tarsioonofrio/hf-risc}, e abra o arquivo  \textit{hf-risc/tp1/app/scheduler.c}. Abaixo é apresentada um pequeno exemplo:
+O sistema é simples de usar, requerendo o \textit{GCC} com suporte para arquitetura \textit{RISCV 32 bits}. Primeiramente baixe o repositório (privado no momento) no endereço \textit{https://github.com/tarsioonofrio/hf-risc}, e abra o arquivo  \textit{hf-risc/tp1/app/scheduler.c}. Abaixo é apresentada um pequeno exemplo:
 
 \begin{lstlisting}[captionpos=b, language=C, caption=Função de exemplo]
 void f(void){
@@ -162,7 +162,7 @@ void f(void){
 }
 \end{lstlisting}
 
-O usuário deve escrever uma função sem parâmetros de entrada e sem retorno. As linhas 1 e 2 reservam espaço na pilha para essa função e impede que o compilador ao otimizar o código remova o espaço reservado. As linhas 5 e 6 reservam salvam o contexto nos registradores e pulam de volta para a função \verb|rt_start|. Por fim adicione o laço infinito com alguma execução dentro.
+O usuário deve escrever uma função sem parâmetros de entrada e com retorno  \verb|void|. As linhas 1 e 2 reservam espaço na pilha para essa função e impede que o compilador ao otimizar o código remova o espaço reservado. As linhas 5 e 6 reservam salvam o contexto nos registradores e pulam de volta para a função \verb|rt_start|. Por fim o usuário deve adicionar o laço infinito com alguma execução dentro.
 
 \begin{lstlisting}[captionpos=b, language=C, caption=Exemplo de uso]
 int main(void){
@@ -189,6 +189,14 @@ int rt_add_task(void (*function),
 
 Os parâmetros da função \verb|rt_add_task| são praticamente iguais as variáveis descritas em \ref{lst:rt_task}, menos \verb|_id| e \verb|executed|. Após isso basta executar \verb|rt_start|.
 
+O arquivo \textit{sys.h} tem a função de auxiliar no desenvolvimento facilitando a troca entre as plataformas \textit{X64} e \textit{riscv 32 bits}. Nele há algumas contantes que são importantes nos testes do sistema:
+\begin{itemize}
+    \item \verb|DELAY|: se haverá atraso ou não no sistema,  \verb|0| sem atraso e \verb|1| com atraso;
+    \item \verb|DELAY_TIME|: define o tempo de atraso caso a variável haja atraso;
+    \item \verb|LOG|: o tipo de texto que será impresso na tela,\verb|0| sem impressão, \verb|1| número identificador da tarefa em execução, \verb|2| nome da tarefa em execução, \verb|4| quantidade de ciclos usados no escalonamento;
+    \item \verb|TIMER|: se interrupções por relógio estarão ativadas, \verb|0| sem interrupções e \verb|1| com interrupções.
+\end{itemize}
+
 Há ainda outras funções que podem ser usadas no sistema:
 \begin{itemize}
     \item \verb|const int  rt_get_states()|: retorna os estados de todas as tarefas;
@@ -198,9 +206,53 @@ Há ainda outras funções que podem ser usadas no sistema:
 \end{itemize}
 
 \section{Avaliação do custo da implementação}
-O sistema ficou relativamente leve mesmo com poucas otimizações. O sistema tem apenas um módulo, os arquivos \textit{rt}. O arquivo \textit{rt.h} tem apenas 66 linhas e o arquivo \textit{rt.c} tem 254. O arquivo \textit{sys.h} tem 45 linhas, sua função é auxiliar no desenvolvimento facilitando a troca entre as plataformas \textit{X64} e \textit{riscv 32 bits}, apenas 5 linhas são obrigatórias em produção. No total são apenas \textit{8.4 kB}, além do arquivo \textit{scheduler.c} onde esta a função \textit{main.c}.
+O sistema ficou relativamente leve mesmo com poucas otimizações. O sistema tem apenas um módulo, os arquivos \textit{rt}. O arquivo \textit{rt.h} tem apenas 66 linhas e o arquivo \textit{rt.c} tem 254. O arquivo \textit{sys.h} tem 45 linhas e apenas 5 linhas são obrigatórias em produção. No total são apenas \textit{8.4 kB}, além do arquivo \textit{scheduler.c} onde esta a função \textit{main.c}.
 
-% avaliação do custo da implementação (tamanho do código para cada subsistema, custo em ciclos do algoritmo de escalonamento, etc).
+Para a avaliação dos custos por ciclo da implementação realizada no presente trabalho usamos a seguinte rotina:
 
+\begin{lstlisting}[captionpos=b, language=C, caption=Função \textit{main} da rotina de avaliaçào]
+int main(void){
+    rt_create();
+    for (int i = 1; i < T + 1; i++){
+        rt_add_task(f, i*5, 2, 0, "_", READY);
+    }
+    rt_start();
+ 	return 0;
+}
+\end{lstlisting}
+
+Onde \verb|T| é o total de tarefas adicionadas, período é 5 multiplicado pelo número de amostras, a capacidade é sempre 2. Foram coletados 1024 amostras de cada execução.
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{| c | c | c | c | c | c |}
+ \hline
+ No. de Tarefas & 2 & 4 & 8 & 16 & 32 \\
+ \hline
+ Mínimo & 119 & 137 & 179 & 251 & 395 \\
+ Máximo & 317 & 500 & 762 & 834 & 978 \\
+ Média & 242 & 343 & 444 & 515 & 659 \\
+ Desvio padrão & 58 & 88 & 105 & 105 & 105 \\ 
+ \hline
+\end{tabular}
+\caption{Medidas estatísticas por ciclo do algoritmo de escalonamento}
+\end{center}
+\end{table}
+
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=12cm]{graph}
+    \caption{Medidas estatísticas por ciclo do algoritmo de escalonamento}
+    \label{fig:graph}
+\end{figure}
+
+
+A função \verb|rt_context_switch| que faz o escalonamento tem custo baixíssimo com poucas tarefas porém cresce de forma constante a partir de 8 tarefas, conforme descrito na tabela e gráfico acima. Claramente a quantidade de tarefas aumenta o custo do escalonador. 
+
+Infelizmente não foi possível testar com 64 tarefas, o sistema apresenta erro e não executa, o erro está salvo no arquivo \textit{data/log64.txt}. 
+
+\section{Conclusão}
+O sistema apresenta bons resultados entretanto é possível fazer várias melhorias como definir a sequência de escalonamento antes da execução e não em tempo de execução, \textit{rate monotonic} permitiria isso. tentar melhorar os aspectos de segurança, a estrutura de dado  \verb|rt_jmp| e a variável \verb|rt_running_id| são expostas ao usuário permitindo respectivamente que este altere os contextos salvos e mude o número de identificação da tarefa em execução.
 
 \end{document} 
