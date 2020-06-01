@@ -24,3 +24,6 @@ tools/sim/hf_riscv_sim/hf_riscv_sim_cache
 tp1/code.txt
 
 *.out
+overleafv2-git.py
+overleafv2-git
+.overleafv2-git
