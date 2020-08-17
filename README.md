@@ -1,8 +1,10 @@
 # TP1
-Os arquivos do tp1 estão todos localizados na pasta ./tp1. O arquivo principal é ./tp1/app/scheduler.c.
-Ainda não separei o projeto em sources e headers diferentes, está praticamente tudo em scheduler.c. Em ./tp1/local estarão os headers e sources do projeto, nessa pasta estão os arquivos rt .c e .h (vazios), list .c e .h que são basicamente a mesma versão presente em /lib mas sem o #include <hf-risc.h>.
-CMakeLists.txt é usado para dar build no x86 (exigência no CLion).
-hf-riscv-sim.sh é usado para dar make e rodar a aplicação.
+The tp1 files are all located in the ./tp1 folder. The main file is ./tp1/app/scheduler.c.
+I have not yet separated the project in different sources and headers, it is practically everything in scheduler.c. In ./tp1/local will be the project's headers and sources, in this folder are the rt .ce .h (empty), list .ce .h files that are basically the same version present in / lib but without the #include <hf -risc.h>.
+CMakeLists.txt is used to build x86 (CLion requirement).
+hf-riscv-sim.sh is used to make and run the application.
+
+Please read the [report](emb_sys_tp1.pdf) for more information
 
 # HF-RISC SoC
 
